@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <!--OPTION FRAGMENT BEGIN-->
+            <div class="modal fade" 
+                 id="modalEmail" 
+                 tabindex="-1" 
+                 role="dialog" 
+                 aria-labelledby="modalEmailLabel" 
+                 th:fragment="email">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" 
+                                    class="close" 
+                                    data-dismiss="modal" 
+                                    aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                            <h4 class="modal-title" 
+                                id="modalEmailLabel">E-mail</h4>
+                        </div>   
+
+                        <form class="form-horizontal" 
+                              th:action="@{/email/modal}" 
+                              th:object="${email}"
+                              method="post">
+
+                            <!--ID-->
+                            <input type="hidden" th:field="*{id}"/>
+                            <!--Query-->
+                            <input type="hidden" th:field="*{query}"/>                            
+                            <!--Connection-->
+                            <input type="hidden" th:field="*{connection}"/>
+                            <!--User-->
+                            <input type="hidden" th:field="*{user}"/>
+
+                            <div class="modal-body">
+                                <div th:if="${ errorMessage != null }" 
+                                     class="form-group">
+                                    <!--Validation-->
+                                    <div class="col-sm-12">
+                                        <div class="alert alert-danger" 
+                                             role="alert">
+                                            <span th:text="${errorMessage}"></span>
+                                        </div>  
+                                    </div> 
+                                </div>
+                                <label>Recipient</label>
+                                <div class="form-group">
+                                    <div class="col-sm-12">
+                                        <select 
+                                            id="recipient"
+                                            class="selectpicker form-control col-xs-6" 
+                                            data-live-search="true" 
+                                            multiple="true"
+                                            th:field="*{recipient}" 
+                                            data-selected-text-format="count > 1">
+
+                                            <option th:each="user: ${users}" 
+                                                    th:value="${user.email}" 
+                                                    th:text="${user.getFullName()}">
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <label>External Recipient</label> 
+                                <div class="form-group">
+                                    <div class="col-sm-12">
+                                        <input 
+                                            type="text" 
+                                            id="externalRecipient"
+                                            class="form-control" 
+                                            maxlength="255"                                            
+                                            placeholder="E-mail list separated by semicolon or comma"
+                                            th:field="*{externalRecipient}" />
+                                    </div>
+                                </div>  
+                                <label>Subject</label> 
+                                <div class="form-group">
+                                    <div class="col-sm-12">
+                                        <input 
+                                            type="text" 
+                                            class="form-control" 
+                                            maxlength="50"                                            
+                                            placeholder="E-mail subject"
+                                            th:field="*{subject}" 
+                                            required="true" />
+                                    </div>
+                                </div>  
+                                <label>Body</label> 
+                                <div class="form-group">
+                                    <div class="col-sm-12">                                        
+                                        <textarea 
+                                            id="query" 
+                                            class="form-control" 
+                                            th:field="*{content}"
+                                            rows="5" 
+                                            maxlength="10000"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">    
+                                <button 
+                                    type="button" 
+                                    class="btn btn-generic btn-sm" 
+                                    data-dismiss="modal">
+                                    Close
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    name="save"
+                                    id="save"
+                                    class="btn btn-generic btn-sm">
+                                    Save
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    name="send"
+                                    id="send"
+                                    class="btn btn-generic btn-sm">
+                                    Send
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <script th:inline="javascript">
+                        /*<![CDATA[*/
+                        $(function () {
+                            toastr.options = {
+                                "closeButton": true,
+                                "progressBar": true,
+                                "positionClass": "toast-top-right",
+                                "timeOut": "3500",
+                                "showEasing": "swing",
+                                "hideEasing": "linear",
+                                "showMethod": "fadeIn",
+                                "hideMethod": "fadeOut"
+                            }
+
+                            /**
+                             * Send action
+                             */
+                            $('#send').on('click', function (e) {
+                                if (!emptyRecipients()) {
+                                    return false;
+                                }
+                                return getInvalidRecipients();
+                            });
+
+                            /**
+                             * Save action
+                             */
+                            $('#save').on('click', function (e) {
+                                if (!emptyRecipients()) {
+                                    return false;
+                                }
+                                return getInvalidRecipients();
+                            });
+
+                            /**
+                             * Identifies if some recipient is empty
+                             * @returns {Boolean}
+                             */
+                            function emptyRecipients() {
+                                if ($("#externalRecipient").val() === ""
+                                        && $("#recipient option:selected").length === 0) {
+                                    toastr.error('Please, choose at least one recipient!');
+                                    return false;
+                                }
+                                return true;
+                            }
+
+                            /**
+                             * Identifies if has any invalid e-mail address.
+                             * 
+                             * @returns {undefined}
+                             */
+                            function getInvalidRecipients() {
+                                var invalid = true;
+                                var url = /*[[@{/email/invalid/recipients}]]*/ "/email/invalid/recipients";
+                                var externalRecipient = $("#externalRecipient").val();
+
+                                //Identify if has at least one external recipient to check.
+                                if (externalRecipient !== "") {
+                                    $.ajax({
+                                        async: false,
+                                        type: "POST",
+                                        url: url,
+                                        data: externalRecipient,
+                                        contentType: "text/html",
+                                        timeout: 30000,
+                                        success: function (result) {
+                                            if (result) {
+                                                toastr.error("Invalid recipients: " + result);
+                                                invalid = false;
+                                            }
+                                        },
+                                        error: function (xhr, status, error) {
+                                            toastr.error('Check recipients failure');
+                                            console.log("Check recipients failure: " + xhr.responseText);
+                                            invalid = false;
+                                        }
+                                    });
+                                }
+                                return invalid;
+                            }
+                        });
+                        /*]]>*/
+                    </script>
+                </div>                
+            </div>
+            <!--OPTION FRAGMENT END-->
+        </div>
+    </body>
+</html>

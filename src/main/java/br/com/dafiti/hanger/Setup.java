@@ -29,9 +29,13 @@ import br.com.dafiti.hanger.service.JobApprovalService;
 import br.com.dafiti.hanger.service.JobCheckupLogService;
 import br.com.dafiti.hanger.service.JobNotificationService;
 import br.com.dafiti.hanger.service.JobService;
+import br.com.dafiti.hanger.service.PrivilegeService;
 import br.com.dafiti.hanger.service.RoleService;
 import br.com.dafiti.hanger.service.UserService;
 import java.util.Date;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
@@ -52,8 +56,11 @@ public class Setup implements ApplicationListener<ContextRefreshedEvent> {
     private final JobService jobService;
     private final JobNotificationService jobNotificationService;
     private final ConfigurationService configurationService;
+    private final PrivilegeService privilegeService;
 
-    boolean setup = false;
+    private static final Logger LOG = LogManager.getLogger(Setup.class.getName());
+
+    private boolean setup = false;
 
     @Autowired
     public Setup(
@@ -63,7 +70,8 @@ public class Setup implements ApplicationListener<ContextRefreshedEvent> {
             JobCheckupLogService jobCheckupLogService,
             JobApprovalService jobApprovalService,
             JobService jobService,
-            JobNotificationService jobNotificationService) {
+            JobNotificationService jobNotificationService,
+            PrivilegeService privilegeService) {
 
         this.jobNotificationService = jobNotificationService;
         this.userService = userService;
@@ -72,6 +80,7 @@ public class Setup implements ApplicationListener<ContextRefreshedEvent> {
         this.jobApprovalService = jobApprovalService;
         this.jobService = jobService;
         this.configurationService = configurationService;
+        this.privilegeService = privilegeService;
     }
 
     /**
@@ -81,10 +90,16 @@ public class Setup implements ApplicationListener<ContextRefreshedEvent> {
      */
     @Override
     public void onApplicationEvent(ContextRefreshedEvent e) {
-        int logRetention = Integer.valueOf(
-                configurationService.findByParameter("LOG_RETENTION_PERIOD").getValue());
-
+        int logRetention;
+        
         if (!this.setup) {
+            //Setup the configuration table. 
+            configurationService.createConfigurationIfNotExists();
+
+            //Setup the additional privileges. 
+            privilegeService.createPrivilegeIfNotExists("WORKBENCH");
+            privilegeService.createPrivilegeIfNotExists("API");
+
             //Setup the admin role. 
             roleService.createRoleIfNotExists("USER");
             roleService.createRoleIfNotExists("ADMIN");
@@ -99,7 +114,7 @@ public class Setup implements ApplicationListener<ContextRefreshedEvent> {
                 user.setUsername("hanger.manager");
                 user.setPassword("hmanager");
                 user.addRole(roleService.findByName("HERO"));
-                
+
                 userService.save(user);
             }
 
@@ -108,10 +123,14 @@ public class Setup implements ApplicationListener<ContextRefreshedEvent> {
 
         //Flow notification.
         jobService.list().forEach((job) -> {
-            jobNotificationService.notify(job, false);
+            LOG.log(Level.INFO, job.getName());
+            jobNotificationService.notify(job, false, true);
         });
 
-        //Run log cleanep on context refresh.
+        logRetention = Integer.valueOf(
+                configurationService.findByParameter("LOG_RETENTION_PERIOD").getValue());
+
+        //Run log cleanup on the context refresh.
         jobCheckupLogService.cleaneup(expiration(logRetention));
         jobApprovalService.cleaneup(expiration(logRetention));
     }

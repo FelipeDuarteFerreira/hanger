@@ -5,86 +5,7 @@
     </head>
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
-
-        <script type="text/javascript" th:inline="javascript">
-            /**
-             * Show a modal delete. 
-             * 
-             * @param {type} id
-             * @param {type} name
-             * @returns {undefined}
-             */
-            function modalDelete(id, name) {
-                document.getElementById("modalJobName").innerText = name;
-                document.getElementById("modalConfirmDel").href = 'delete/' + id;
-                $("#modalDelete").modal();
-            }
-
-            /**
-             * Build a job and show the result as a toast message.
-             * 
-             * @param {type} id
-             * @param {type} name
-             * @returns {undefined}
-             */
-            function buildJob(id, name) {
-                var url = /*[[@{/job/build/silently/}]]*/ "/job/build/silently/";
-
-                toastr.options = {
-                    "closeButton": true,
-                    "progressBar": true,
-                    "positionClass": "toast-top-right",
-                    "timeOut": "2500",
-                    "showEasing": "swing",
-                    "hideEasing": "linear",
-                    "showMethod": "fadeIn",
-                    "hideMethod": "fadeOut"
-                }
-
-                $.ajax({
-                    type: "GET",
-                    url: url + "/" + id,
-                    timeout: 30000,
-                    success: function (result) {
-                        if (result) {
-                            toastr.success('Successfully built job ' + name);
-                        } else {
-                            toastr.error('Error building job ' + name);
-                        }
-                    },
-                    error: function (e) {
-                        toastr.error('Error on building request of ' + name);
-                    }
-                });
-            }
-        </script>
-
         <div class="container-fluid main-content">
-            <table>
-                <tr>
-                    <th>
-                        <h3 class="page-title">Job</h3>
-                    </th>
-                    <th class="btn-action">
-                        <a th:href="@{'/job/add/'}" title="Add Job">
-                            <span class="glyphicon glyphicon-plus"></span>
-                        </a>
-                    </th>
-
-                    <th class="btn-action">
-                        <a th:href="@{/build/heatmap}" title="Heatmap">
-                            <span class="glyphicon glyphicon-th"></span>
-                        </a>
-                    </th>
-
-                    <th class="btn-action">
-                        <a th:href="@{/build/gantt}" title="Gantt">
-                            <span class="glyphicon glyphicon-object-align-left"></span>
-                        </a>
-                    </th>
-                </tr>            
-            </table>
-
             <div th:if="${ errorMessage != null }" class="form-group">
                 <div class="alert alert-danger" role="alert">
                     <span th:text="${errorMessage}"></span>
@@ -100,16 +21,16 @@
             </div> 
 
             <div>
-                <table id="table_paginated" class="table table-hover">
+                <table id="table_paginated" class="table table-hover space-top">
                     <thead>
                         <tr>
                             <th>#</th>
                             <th style="width:10%">Server</th>
                             <th style="width:50%">Name</th>
                             <th style="width:35%">Alias</th>
-                            <th><span class="glyphicon glyphicon-bell" title="NOTIFICATION"></span></th>
-                            <th><span class="glyphicon glyphicon-heart-empty" title="CHECKUP"></span></th>
-                            <th class="no-sort no-search"><span class="glyphicon glyphicon-link" title="LINK"></span></th> 
+                            <th><span class="glyphicon glyphicon-bell" title="Notification"></span></th>
+                            <th><span class="glyphicon glyphicon-heart-empty" title="Check-Up"></span></th>
+                            <th class="no-sort no-search"><span class="glyphicon glyphicon-link" title="Link"></span></th> 
                             <th class="no-sort no-search"></th> 
                             <th class="no-sort no-search"></th>
                             <th class="no-sort no-search"></th>
@@ -171,7 +92,8 @@
                                 </a>
                             </td>
                             <td>
-                                <div class="form-group">
+                                <div class="form-group"
+                                     th:if="${#authorization.expression('hasRole(''HERO'')')}">
                                     <button class="btn btn-xs btn-delete" th:attr="onclick='modalDelete(' + ${job.id} + ',\'' + ${job.name} + '\');'" ><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete</button>
                                 </div>
                             </td>
@@ -204,5 +126,57 @@
             </div>
             <!--End delete modal-->
         </div>
+        <script type="text/javascript" th:inline="javascript">
+            /**
+             * Show a modal delete. 
+             * 
+             * @param {type} id
+             * @param {type} name
+             * @returns {undefined}
+             */
+            function modalDelete(id, name) {
+                document.getElementById("modalJobName").innerText = name;
+                document.getElementById("modalConfirmDel").href = 'delete/' + id;
+                $("#modalDelete").modal();
+            }
+
+            /**
+             * Build a job and show the result as a toast message.
+             * 
+             * @param {type} id
+             * @param {type} name
+             * @returns {undefined}
+             */
+            function buildJob(id, name) {
+                var url = /*[[@{/job/build/silently/}]]*/ "/job/build/silently/";
+
+                toastr.options = {
+                    "closeButton": true,
+                    "progressBar": true,
+                    "positionClass": "toast-top-right",
+                    "timeOut": "2500",
+                    "showEasing": "swing",
+                    "hideEasing": "linear",
+                    "showMethod": "fadeIn",
+                    "hideMethod": "fadeOut"
+                }
+
+                $.ajax({
+                    type: "GET",
+                    url: url + id,
+                    timeout: 30000,
+                    success: function (result) {
+                        if (result) {
+                            toastr.success('Successfully built job ' + name);
+                        } else {
+                            toastr.error('Error building job ' + name);
+                        }
+                    },
+                    error: function (e) {
+                        toastr.error('Error on building request of ' + name);
+                    }
+                });
+            }
+        </script>
     </body>
 </html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <!--OPTION FRAGMENT BEGIN-->
+            <div class="modal fade" id="modalShellScriptTemplateParameter" tabindex="-1" role="dialog" aria-labelledby="modalShellScriptTemplateParameterLabel" th:fragment="parameter">
+                <div class="modal-dialog modal-lg" role="document">                    
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                            <h4 class="modal-title" id="modalShellScriptTemplateParameterLabel">
+                                Template
+                            </h4>
+                        </div>
+
+                        <div class="modal-body">
+                            <!--ID do template-->
+                            <input type="hidden" name="templateID" id="templateID" th:value="${template.id}"/> 
+
+                            <!--Parâmetros do template preenchidos pelo usuário-->
+                            <input type="hidden" name="templateParameters" id="templateParameters"/> 
+
+                            <!--Template-->
+
+                            <fieldset>
+                                <legend class="space-top">                                        
+                                    <a class="link" 
+                                       data-toggle="collapse" 
+                                       href="#collapsePrimary" 
+                                       role="button" 
+                                       aria-expanded="false" 
+                                       aria-controls="collapsePrimary" 
+                                       title="Click to expand or collapse">
+                                        <span class="glyphicon glyphicon-triangle-bottom"></span>
+                                        Model                                           
+                                    </a>
+                                </legend>
+
+                                <div class="collapse" id="collapsePrimary">
+                                    <div class="col-sm-12">
+                                        <textarea 
+                                            class="form-control" 
+                                            rows="10" 
+                                            th:text="${template.model}" 
+                                            placeholder="Template" 
+                                            maxlength="65000" 
+                                            disabled="true"></textarea>
+                                    </div>
+                                </div>  
+                            </fieldset>
+
+                            <!--Parameters-->
+                            
+                            <form id="parametersForm" class="form-horizontal" >
+                                <div class="space-top" th:each="parameter : ${parameters}">                                
+                                    <label th:text="${parameter.key}"></label>
+                                    <div class="form-group">                                        
+                                        <div class="col-sm-12">
+                                            <input 
+                                                class="form-control"
+                                                th:type="${parameter.value.get('type')}" 
+                                                th:name="${parameter.key}" 
+                                                th:id="${parameter.key}" 
+                                                th:value="${parameter.value.get('default')}"
+                                                maxlength="255"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="modal-footer">                                
+                            <button 
+                                type="button" 
+                                class="btn btn-generic btn-sm" 
+                                data-dismiss="modal">
+                                <span aria-hidden="true"></span> Close 
+                            </button>
+
+                            <button type="submit" name="partial_add_job_shell_script" class="btn btn-generic btn-sm">
+                                <span aria-hidden="true"></span> Add
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <script th:inline="javascript">
+                    $(document).ready(function () {
+                        /**
+                         * Add a shell script from template. 
+                         */
+                        $("form").submit(function () {
+                            $('#templateParameters').val(JSON.stringify($('#parametersForm').serializeArray()));
+                        });
+                    });
+                </script> 
+            </div>
+            <!--OPTION FRAGMENT END-->
+        </div>
+    </body>
+</html>

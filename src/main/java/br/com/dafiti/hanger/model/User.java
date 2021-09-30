@@ -24,8 +24,11 @@
 package br.com.dafiti.hanger.model;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -38,10 +41,13 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.JoinTable;
 import javax.persistence.ManyToMany;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
 import javax.persistence.Transient;
 import javax.validation.constraints.Pattern;
 import javax.validation.constraints.Size;
 import org.apache.commons.lang.WordUtils;
+import org.json.JSONObject;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -52,7 +58,7 @@ import org.springframework.security.core.userdetails.UserDetails;
  * @author Guilherme ALMEIDA
  */
 @Entity
-public class User extends Tracker implements Serializable, UserDetails {
+public class User extends Tracker<User> implements Serializable, UserDetails {
 
     private Long id;
     private String firstName;
@@ -63,14 +69,16 @@ public class User extends Tracker implements Serializable, UserDetails {
     private String email;
     private String resetCode;
     private Set<Role> roles = new HashSet();
+    private List<Privilege> privileges = new ArrayList();
     private int avatar;
     private boolean enabled = true;
+    private Date tokenCreatedAt;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
     public Long getId() {
-        return this.id;
+        return id;
     }
 
     public void setId(Long id) {
@@ -81,7 +89,7 @@ public class User extends Tracker implements Serializable, UserDetails {
     @Override
     @Column(unique = true)
     public String getUsername() {
-        return this.username;
+        return username;
     }
 
     public void setUsername(String username) {
@@ -91,7 +99,7 @@ public class User extends Tracker implements Serializable, UserDetails {
     @Size(min = 4)
     @Override
     public String getPassword() {
-        return this.password;
+        return password;
     }
 
     public void setPassword(String password) {
@@ -100,7 +108,7 @@ public class User extends Tracker implements Serializable, UserDetails {
 
     @Transient
     public String getConfirmPassword() {
-        return this.confirmPassword;
+        return confirmPassword;
     }
 
     public void setConfirmPassword(String confirmPassword) {
@@ -129,13 +137,13 @@ public class User extends Tracker implements Serializable, UserDetails {
             return "";
         }
 
-        return this.getFirstName() + " " + this.getLastName();
+        return getFirstName() + " " + this.getLastName();
     }
 
     @Column(name = "email", unique = true)
     @Pattern(regexp = "[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,3}$")
     public String getEmail() {
-        return this.email;
+        return email;
     }
 
     public void setEmail(String email) {
@@ -143,7 +151,7 @@ public class User extends Tracker implements Serializable, UserDetails {
     }
 
     public String getResetCode() {
-        return this.resetCode;
+        return resetCode;
     }
 
     public void setResetCode(String resetCode) {
@@ -155,7 +163,7 @@ public class User extends Tracker implements Serializable, UserDetails {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id"))
     public Set<Role> getRoles() {
-        return this.roles;
+        return roles;
     }
 
     public void setRoles(Set<Role> roles) {
@@ -164,6 +172,24 @@ public class User extends Tracker implements Serializable, UserDetails {
 
     public void addRole(Role role) {
         this.roles.add(role);
+    }
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "user_privilege",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "privilege_id"))
+    public List<Privilege> getPrivileges() {
+        return privileges;
+    }
+
+    public void setPrivileges(List<Privilege> privileges) {
+        this.privileges = privileges;
+    }
+
+    public void addPrivilege(Privilege privilege) {
+        if (!this.getPrivileges().contains(privilege)) {
+            this.privileges.add(privilege);
+        }
     }
 
     public int getAvatar() {
@@ -210,6 +236,15 @@ public class User extends Tracker implements Serializable, UserDetails {
         this.enabled = enable;
     }
 
+    @Temporal(TemporalType.TIMESTAMP)
+    public Date getTokenCreatedAt() {
+        return tokenCreatedAt;
+    }
+
+    public void setTokenCreatedAt(Date tokenCreatedAt) {
+        this.tokenCreatedAt = tokenCreatedAt;
+    }
+
     @Transient
     public boolean isCodeSet() {
         return !(this.resetCode == null || this.resetCode.equals(""));
@@ -238,5 +273,17 @@ public class User extends Tracker implements Serializable, UserDetails {
             return false;
         }
         return true;
+    }
+
+    @Override
+    public String toString() {
+        JSONObject object = new JSONObject();
+        object.put("id", id);
+        object.put("firstName", firstName);
+        object.put("lastName", lastName);
+        object.put("username", username);
+        object.put("email", email);
+        object.put("enabled", enabled);
+        return object.toString(2);
     }
 }

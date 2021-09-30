@@ -6,28 +6,24 @@
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
         <div class="container-fuild main-content">
-            <table>
-                <tr>
-                    <th>
-                        <h3 class="page-title">Heatmap</h3>
-                    </th>
-                </tr>            
-            </table>
             <form class="form-horizontal" th:object="${filter}" th:action="@{/build/heatmap/filtered}" method="post">
                 <div class="form-group space-top space-left space-right">  
-                    <span id="date-range-filter">
-                        <div class="col-sm-2">
-                            <label>From</label>  
-                            <input name="dateFrom" id="date-from" type="text" class="form-control" th:field="*{dateFrom}"/>
-                        </div>
+                    <div class="col-md-4" style="padding-left: 0">
+                        <label>Period</label>
+                        <input type="text" 
+                               class="form-control" 
+                               maxlength="50" 
+                               name="period" 
+                               id="period"
+                               readonly="readonly"
+                               style="cursor:pointer"/>
 
-                        <div class="col-sm-2">
-                            <label>To</label> 
-                            <input name="dateTo" id="date-to" type="text" class="form-control" th:field="*{dateTo}"/>
-                        </div>
-                    </span>
+                        <span id="help_period" class="help-block" style="display: none">You must choose a date</span>
 
-                    <div class="col-sm-6">
+                        <input name= "dateFrom" id="date-from" type="hidden" th:field="*{dateFrom}"/>
+                        <input name="dateTo" id="date-to" type="hidden" th:field="*{dateTo}"/>
+                    </div>
+                    <div class="col-sm-6" style="padding-left: 0">
                         <label>Phase</label> 
                         <select name="phase" id="phase" class="selectpicker form-control" data-live-search="true" th:field="*{phase}" required="true" placeholder="Phase">
                             <option th:each="phase : ${T(br.com.dafiti.hanger.option.Phase).values()}" 
@@ -46,7 +42,7 @@
                 </div>
 
                 <div class="form-group space-left space-right">
-                    <div class="col-sm-12">
+                    <div class="col-sm-12" style="padding-left: 0">
                         <label>Build in the period: </label> 
                         <span th:inline="text"> <b>[[${#aggregates.sum(total)}]]</b></span>
                     </div>
@@ -97,5 +93,26 @@
                 </tbody>
             </table>
         </div>
+        <script>
+            $(function () {
+                $('#period').daterangepicker({
+                    "startDate": $('#date-from').val(),
+                    "endDate": $('#date-to').val(),
+                    timePicker: true,
+                    maxDate: moment().startOf('day'),
+                    timePicker: false,
+                    opens: 'right',
+                    locale: {
+                        format: 'YYYY-MM-DD',
+                        "separator": " to "
+                    },
+                });
+
+                $('#period').on('apply.daterangepicker', function (ev, picker) {
+                    $('#date-from').val(picker.startDate.format('YYYY-MM-DD'));
+                    $('#date-to').val(picker.endDate.format('YYYY-MM-DD'));
+                });
+            });
+        </script>
     </body>    
 </html>

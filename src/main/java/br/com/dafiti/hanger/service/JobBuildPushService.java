@@ -29,15 +29,16 @@ import br.com.dafiti.hanger.model.JobStatus;
 import br.com.dafiti.hanger.option.Flow;
 import br.com.dafiti.hanger.option.Scope;
 import br.com.dafiti.hanger.service.JobBuildService.BuildInfo;
-import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.joda.time.Days;
+import org.joda.time.LocalDate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -54,6 +55,8 @@ public class JobBuildPushService {
     private final JobService jobService;
     private final JobStatusService jobStatusService;
     private final JobNotificationService jobNotificationService;
+
+    private static final Logger LOG = LogManager.getLogger(JobBuildPushService.class.getName());
 
     @Autowired
     public JobBuildPushService(
@@ -81,7 +84,7 @@ public class JobBuildPushService {
         HashSet<JobParent> childs = jobParentService.findByParent(job);
 
         //For each child.
-        childs.forEach((child) -> {
+        childs.forEach((JobParent child) -> {
             //Get the  child.
             Job childJob = child.getJob();
 
@@ -95,49 +98,46 @@ public class JobBuildPushService {
                 //Define the job status.
                 if (childJobStatus == null) {
                     childJobStatus = new JobStatus();
+                    childJobStatus.setScope(push.getScope());
+                    childJobStatus.setDate(new Date());
+
+                    //Defines a relation between a job and it status.
+                    childJobStatus = jobStatusService.save(childJobStatus);
+                    childJob.setStatus(childJobStatus);
+                    jobService.save(childJob);
+                } else {
+                    childJobStatus.setScope(push.getScope());
+                    childJobStatus.setDate(new Date());
                 }
 
-                //Identify the job scope.
-                childJobStatus.setScope(push.getScope());
-
-                //Identify the job status date. 
-                childJobStatus.setDate(new Date());
-
-                //Build the job child. 
                 try {
-                    childJobStatus.setFlow(Flow.REBUILD);
-
                     //Build the job.
                     BuildInfo buildInfo = jobBuildService.build(childJob);
 
                     //Identify if the prevalidation was sucessfuly.
                     if (!buildInfo.isHealthy()) {
-                        //Mark child job build as blocked in case pre-validation fail. 
+                        //Set child job as blocked in case pre-validation fail. 
                         childJobStatus.setFlow(Flow.BLOCKED);
+                        jobStatusService.save(childJobStatus);
 
                         //Publish a job notification.
                         jobNotificationService.notify(childJob, true);
+                    } else {
+                        //Set child job as queued.
+                        childJobStatus.setFlow(Flow.QUEUED);
+                        jobStatusService.save(childJobStatus);
                     }
-                } catch (URISyntaxException | IOException ex) {
-                    //Mark child job build as fail in case of error. 
+                } catch (Exception ex) {
+                    //Set child job build as fail in case of error. 
                     childJobStatus.setFlow(Flow.ERROR);
+                    jobStatusService.save(childJobStatus);
 
                     //Publish a job notification.
                     jobNotificationService.notify(childJob, true);
 
                     //Fail log.
-                    Logger.getLogger(EyeService.class.getName())
-                            .log(Level.SEVERE, "Fail building job: " + childJob.getName(), ex);
+                    LOG.log(Level.ERROR, "Fail building job: " + childJob.getName(), ex);
                 }
-
-                //Save the job status.
-                childJobStatus = jobStatusService.save(childJobStatus);
-
-                //Link job status with job.
-                childJob.setStatus(childJobStatus);
-
-                //Update the job.
-                jobService.save(childJob);
             }
         });
     }
@@ -154,7 +154,7 @@ public class JobBuildPushService {
         Map<Job, Boolean> all = new HashMap();
         Map<Job, Boolean> partial = new HashMap();
 
-        //Identify the job is getPushInfo.
+        //Identifies the job is getPushInfo.
         boolean built = jobBuildStatusService.isBuildable(job);
 
         if (built) {
@@ -162,33 +162,31 @@ public class JobBuildPushService {
             List<JobParent> parents = job.getParent();
 
             for (JobParent parent : parents) {
-                //Identify if the parent is optional. 
-                built = parent.getScope().equals(Scope.OPTIONAL);
+                //Identifies if the parent is enabled. 
+                if (parent.getParent().isEnabled()) {
+                    //Identifies if the parent is optional. 
+                    built = parent.getScope().equals(Scope.OPTIONAL);
 
-                //Identify if the parent is built.
-                if (!built) {
-                    built = jobBuildStatusService.isBuilt(parent.getParent());
-
+                    //Identifies if the parent is built.
                     if (!built) {
-                        //Identify if the parent is disabled.
-                        built = !(parent.getParent().isEnabled());
+                        built = jobBuildStatusService.isBuilt(parent.getParent(), job.isAnyScope());
                     }
-                }
 
-                //Record all parent build status.
-                all.put(parent.getParent(), built);
+                    //Record all parent build status.
+                    all.put(parent.getParent(), built);
 
-                //Record partial dependencies build status.
-                if (parent.getScope().equals(Scope.PARTIAL)) {
-                    partial.put(parent.getParent(), built);
+                    //Record partial dependencies build status.
+                    if (parent.getScope().equals(Scope.PARTIAL)) {
+                        partial.put(parent.getParent(), built);
+                    }
                 }
             }
 
-            //Identify if there are only healthy dependencies. 
+            //Identifies if there are only healthy dependencies. 
             boolean full = partial.isEmpty();
 
             if (full) {
-                //Identify if healthy dependencies was built successfully. 
+                //Identifies if healthy dependencies was built successfully. 
                 for (Map.Entry<Job, Boolean> entry : all.entrySet()) {
                     ready = entry.getValue();
 
@@ -197,12 +195,15 @@ public class JobBuildPushService {
                     }
                 }
 
-                //Identify the scope.
+                //Identifies the scope.
                 if (ready) {
                     scope = Scope.FULL;
                 }
+
+                //Log the full dependencies status.
+                LOG.log(Level.INFO, "FULL -> Job={}, scope={}, ready={}, dependencies={}", new Object[]{job.getName(), scope, ready, all});
             } else {
-                //Identify if all dependencies was built successfully.
+                //Identifies if all dependencies was built successfully.
                 for (Map.Entry<Job, Boolean> entry : all.entrySet()) {
                     full = entry.getValue();
 
@@ -215,7 +216,7 @@ public class JobBuildPushService {
                     ready = true;
                     scope = Scope.FULL;
                 } else {
-                    //Identify if partial dependencies was built successfully. 
+                    //Identifies if partial dependencies was built successfully. 
                     for (Map.Entry<Job, Boolean> entry : partial.entrySet()) {
                         ready = entry.getValue();
 
@@ -224,12 +225,29 @@ public class JobBuildPushService {
                         }
                     }
 
-                    //Identify the scope.
+                    //Identifies the scope.
                     if (ready) {
+                        JobStatus jobStatus = job.getStatus();
+
+                        //Identifies if the job are already in a partial scope.
+                        if (jobStatus != null) {
+                            int lastBuild = Days.daysBetween(new LocalDate(jobStatus.getDate()), new LocalDate()).getDays();
+
+                            //Identifies if the job was built today. 
+                            if (lastBuild == 0) {
+                                ready = (jobStatus.getScope() != Scope.PARTIAL);
+                            }
+                        }
+
                         scope = Scope.PARTIAL;
                     }
                 }
+
+                //Log the partial dependencies status.
+                LOG.log(Level.INFO, "PARTIAL -> job={}, scope={}, ready={}, partial={}, full={}", new Object[]{job.getName(), scope, ready, partial, all});
             }
+        } else {
+            LOG.log(Level.INFO, "Job {} is not buildable", new Object[]{job.getName()});
         }
 
         return new PushInfo(ready, scope);

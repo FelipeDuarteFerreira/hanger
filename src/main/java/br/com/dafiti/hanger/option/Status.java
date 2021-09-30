@@ -40,5 +40,10 @@ public enum Status {
     BLOCKED,
     APPROVED,
     DISAPPROVED,
-    DISABLED;
+    DISABLED,
+    UNSTABLE,
+    CHECKUP,
+    RESTRICTED,
+    PARTIAL,
+    QUEUED;
 }

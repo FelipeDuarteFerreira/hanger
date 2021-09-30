@@ -32,20 +32,22 @@ import java.util.List;
 import java.util.Objects;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
-import javax.persistence.ConstraintMode;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
-import javax.persistence.ForeignKey;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
-import javax.persistence.OrderBy;
+import javax.persistence.Transient;
+import org.commonmark.node.Node;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
 
 /**
  *
@@ -56,6 +58,7 @@ public class JobCheckup implements Serializable {
 
     private Long id;
     private Job job;
+    private String name;
     private String description;
     private Connection connection;
     private Scope scope;
@@ -70,7 +73,7 @@ public class JobCheckup implements Serializable {
     private boolean prevalidation = false;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long getId() {
         return id;
     }
@@ -89,12 +92,30 @@ public class JobCheckup implements Serializable {
         this.job = job;
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name.toUpperCase();
+    }
+
+    @Column(columnDefinition = "text")
     public String getDescription() {
         return description;
     }
 
     public void setDescription(String description) {
         this.description = description.toUpperCase();
+    }
+
+    @Transient
+    public String getHTMLDescription() {
+        Parser parser = Parser.builder().build();
+        Node document = parser.parse(this.getDescription());
+        HtmlRenderer renderer = HtmlRenderer.builder().build();
+
+        return renderer.render(document);
     }
 
     @Column(columnDefinition = "text")
@@ -151,7 +172,7 @@ public class JobCheckup implements Serializable {
         this.connection = connection;
     }
 
-    @OneToMany
+    @ManyToMany
     @JoinTable(name = "job_checkup_trigger",
             joinColumns = {
                 @JoinColumn(name = "job_checkup_id", referencedColumnName = "id")},
@@ -187,9 +208,7 @@ public class JobCheckup implements Serializable {
         this.command.add(command);
     }
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "job_checkup_id", referencedColumnName = "id", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT))
-    @OrderBy(value = "date DESC")
+    @OneToMany(mappedBy = "checkup", cascade = CascadeType.ALL, orphanRemoval = true)
     public List<JobCheckupLog> getLog() {
         return log;
     }
@@ -216,6 +235,22 @@ public class JobCheckup implements Serializable {
 
     public void setPrevalidation(boolean prevalidation) {
         this.prevalidation = prevalidation;
+    }
+
+    @Transient
+    public boolean getLastStatus() {
+        boolean status = true;
+        List<JobCheckupLog> log = this.getLog();
+
+        if (!log.isEmpty()) {
+            JobCheckupLog jobCheckupLog = log.get(0);
+
+            if (jobCheckupLog != null) {
+                status = jobCheckupLog.isSuccess();
+            }
+        }
+
+        return status;
     }
 
     @Override

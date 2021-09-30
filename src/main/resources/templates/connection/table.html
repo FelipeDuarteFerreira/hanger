@@ -6,13 +6,20 @@
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
         <div class="container-fluid main-content">
-            <table>
-                <tr>
-                    <th>
-                        <h3 th:inline="text" class="page-title">[[${connection.name}]]'s tables</h3>
-                    </th>
-                </tr>            
-            </table>
+            <ol class="breadcrumb breadcrumb-connection">
+                <li th:inline="text">
+                    <a th:href="@{'/connection/list/'}">                    
+                        Connection
+                    </a>
+                </li>
+                <li th:inline="text">
+                    <a th:href="@{'/connection/' + ${connection.id} + '/catalog/schema'}">
+                        [[${connection.name}]]
+                    </a>
+                </li>
+                <li th:inline="text" th:if="${catalog != 'null' and catalog != ''}">[[${catalog}]]</li>
+                <li th:inline="text" th:if="${schema != 'null' and schema != ''}">[[${schema}]]</li>
+            </ol>
 
             <div th:if="${ errorMessage != null }" class="form-group">
                 <div class="alert alert-danger" role="alert">
@@ -30,8 +37,6 @@
                 <thead>
                     <tr>
                         <th style="width:1%">#</th>
-                        <th>Catalog</th>
-                        <th>Schema</th>
                         <th>Table</th>
                         <th class="no-sort" style="width:1%"></th>
                     </tr>
@@ -39,17 +44,21 @@
                 <tbody>
                     <tr th:each="metadata, stat : ${metadata}">
                         <td th:text="${stat.index + 1}">#</td>
-                        <td th:text="${metadata.catalog}">Catalog</td>
-                        <td th:text="${metadata.schema}">Schema</td>
                         <td th:text="${metadata.table}">Table</td>
                         <td>
-                            <a th:href="@{'/connection/' + ${connection.id} + '/table/column/' + ${metadata.catalog} + '/' + ${metadata.schema} + '/' + ${metadata.table} }" class="btn btn-generic btn-xs">
+                            <a th:href="@{'/connection/' + ${connection.id} + '/table/column'(catalog=${metadata.catalog},schema=${metadata.schema},table=${metadata.table})}" class="btn btn-generic btn-xs">
                                 <span class="glyphicon glyphicon-th" aria-hidden="true"></span> Column
                             </a>
-                        </td>
-                    </tr>
+                        </td>                        
+                    </tr>                    
                 </tbody>
-            </table>
+            </table> 
+
+            <div th:if="${displayLimit}" class="form-group">
+                <div class="alert alert-info" role="alert">
+                    Limited by configuration rule
+                </div>  
+            </div>
         </div>
     </body>
 </html>

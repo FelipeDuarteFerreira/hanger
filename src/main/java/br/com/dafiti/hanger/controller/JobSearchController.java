@@ -33,12 +33,15 @@ import br.com.dafiti.hanger.service.SubjectService;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Map;
+import java.util.TreeMap;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 import java.util.stream.Collectors;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -57,8 +60,9 @@ public class JobSearchController {
 
     private final JobService jobService;
     private final JobDetailsService jobDetailsService;
-
     private final String SEARCH_COOKIE = "a212aa8752164cfa1bde02b00c6af44a";
+
+    private static final Logger LOG = LogManager.getLogger(JobSearchController.class.getName());
 
     @Autowired
     public JobSearchController(
@@ -95,7 +99,7 @@ public class JobSearchController {
                 }
             }
         } catch (Exception ex) {
-            Logger.getLogger(MonitorController.class.getName()).log(Level.SEVERE, "Fail reading cookies", ex);
+            LOG.log(Level.ERROR, "Fail reading cookies", ex);
         }
 
         model.addAttribute("searches", searches);
@@ -147,19 +151,23 @@ public class JobSearchController {
                 response.addCookie(cookie);
 
             } catch (Exception ex) {
-                Logger.getLogger(JobSearchController.class.getName()).log(Level.SEVERE, "Fail managing cookies", ex);
+                LOG.log(Level.ERROR, "Fail managing cookies", ex);
             }
         }
 
         request.getCookies();
 
         List<JobDetails> jobDetails = jobDetailsService.getDetailsOf(jobs);
-        model.addAttribute("jobDetails", jobDetails
+        //Required parameter for template.
+        Map<String, List<JobDetails>> swimlanes = new TreeMap();
+        swimlanes.put("ALL", jobDetails
                 .stream()
                 .sorted((a, b) -> (a.getJob().getName().compareTo(b.getJob().getName())))
                 .sorted((a, b) -> a.getStatus().toString().compareTo(b.getStatus().toString())).collect(Collectors.toList()));
 
+        model.addAttribute("swimlanes", swimlanes);
         model.addAttribute("currentSubject", new Subject());
+
         return "monitor/fragmentJobDetails::jobDetails";
     }
 }

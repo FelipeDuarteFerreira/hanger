@@ -5,7 +5,222 @@
     </head>
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <div>           
+                <form class="form-horizontal" th:object="${subject}" th:action="@{/subject/save}" method="post">
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <!--ID-->
+                            <input type="hidden" th:field="*{id}"/>
+                            <!--Slack channels-->
+                            <input type="hidden" th:field="*{channel}"/>
+                            <!--User list-->
+                            <input type="hidden" th:field="*{user}"/>
+                            <!--Swimlanes-->
+                            <div th:each="entry : *{swimlane}">
+                                <input type="hidden" th:id="${entry.key}" th:field="*{swimlane[__${entry.key}__]}" th:value="${entry.value}" /> 
+                            </div>
+                        </div>
+                    </div>
 
+                    <div th:if="${ errorMessage != null }" class="form-group">
+                        <!--Validation-->
+                        <div class="col-sm-10">
+                            <div class="alert alert-danger" role="alert">
+                                <span th:text="${errorMessage}"></span>
+                            </div>  
+                        </div> 
+                    </div> 
+
+                    <!--Subject-->   
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Subject</label> 
+                            <input type="text" class="form-control" maxlength="50" th:field="*{name}" placeholder="Subject name" required="true"/>
+                            <span th:if="${#fields.hasErrors('name')}" class="help-block" th:errors="*{name}"></span>
+                        </div>
+                    </div>        
+
+                    <!--Description-->   
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Description</label> 
+                            <textarea class="form-control" rows="3" th:field="*{description}" placeholder="Description" maxlength="65000"></textarea>
+                        </div>
+                        <span th:if="${#fields.hasErrors('description')}" class="help-block" th:errors="*{description}"></span>
+                    </div>
+
+                    <!--Swimlanes-->  
+                    <div th:if="not ${subject.swimlane.isEmpty()}">  
+                        <fieldset>
+                            <legend>Swimlanes</legend> 
+                            <table class="table">
+                                <tr>
+                                    <th style="width:20%">Swimlane</th>
+                                    <th style="width:57.5%">Critéria</th>
+                                    <th></th>
+                                </tr>
+                                <tr th:each="swimlane: ${subject.swimlane}">
+                                    <td> 
+                                        <span th:text="${swimlane.key}"></span>
+                                    </td>
+                                    <td> 
+                                        <span th:text="${swimlane.value}"></span>
+                                    </td>
+                                    <td>
+                                        <button type="submit" name="partial_remove_swimlane" th:value="${swimlane.key}" class="btn btn-delete btn-xs">
+                                            <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            </table>
+                        </fieldset>
+                    </div> 
+
+                    <fieldset>
+                        <legend>Subscription</legend>
+
+                        <!--Mandatory-->                                            
+                        <div class="form-group">
+                            <div class="col-sm-10">
+                                <label>
+                                    <input  
+                                        id="mandatory" 
+                                        name="mandatory"
+                                        type="checkbox" 
+                                        th:field="*{mandatory}" 
+                                        th:checked="*{mandatory}"/> Mandatory
+                                </label>         
+                            </div>
+                        </div>    
+
+                        <!--User list-->  
+                        <div th:if="${not #lists.isEmpty(subject.user)}">  
+                            <table class="table">
+                                <tr>
+                                    <th>Subscriber</th>
+                                </tr>
+                                <tr th:each="user: ${subject.user}">
+                                    <td> 
+                                        <span th:text="${user.firstName + ' ' + user.lastName}"></span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div> 
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Notification</legend>
+
+                        <!--Notification-->                                            
+                        <div class="form-group">
+                            <div class="col-sm-10">
+                                <label>
+                                    <input  
+                                        id="slack" 
+                                        name="slack"
+                                        type="checkbox" 
+                                        th:field="*{notified}" 
+                                        th:checked="*{notified}"/> Slack notification 
+                                </label>        
+                            </div>
+                        </div>    
+
+                        <!--Slack channel list-->  
+                        <div th:if="${not #lists.isEmpty(subject.channel)}">  
+                            <table class="table">
+                                <tr>
+                                    <th style="width:77.5%">Channel</th>
+                                    <th></th>
+                                </tr>
+                                <tr th:each="slackChannel, slackChannelStat : ${subject.channel}">
+                                    <td> 
+                                        <span th:text="${slackChannel}"></span>
+                                    </td>
+                                    <td>
+                                        <button type="submit" name="partial_remove_slack_channel" th:value="${slackChannel}" class="btn btn-delete btn-xs">
+                                            <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div> 
+                    </fieldset>
+
+                    <!--Modal--> 
+                    <div id="modalHolder"></div>
+
+                    <!--Buttons--> 
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <button type="submit" class="btn btn-generic btn-sm">
+                                <span class="glyphicon glyphicon-save" aria-hidden="true"></span> Save
+                            </button>
+
+                            <button type="button" class="btn btn-generic btn-sm pull-right btn-space" data-toggle="modal" data-backdrop="static" data-target="#modalSwimlane">
+                                <span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span> Swimlanes
+                            </button>
+
+                            <div class="btn-group pull-right btn-space dropup">
+                                <button type="button" class="btn btn-generic btn-sm" th:id="modal_add_slack_channel">                                         
+                                    <span class="glyphicon glyphicon-bell" aria-hidden="true"></span> Slack channel
+                                </button>
+                            </div>
+
+                            <button id="modal_wait" type="button" class="btn btn-generic btn-sm pull-right btn-space" style="display:none;">
+                                <img th:src="@{'/images/ajax-loader.gif'}"></img>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!--Tracker-->
+                    <div th:if="*{ updatedAt != null }">
+                        <hr/>
+                        <div class="form-group">                        
+                            <div class="col-sm-10">
+                                <label class="pull-right label-edit-information" th:inline="text">Updated by [[*{modifiedBy}]] at [[*{#dates.format(updatedAt, 'yyyy-MM-dd HH:mm:ss')}]]</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!--Swimlane modal-->                
+                    <div class="modal fade" id="modalSwimlane" tabindex="-1" role="dialog" aria-labelledby="modalSwimlaneLabel">
+                        <div class="modal-dialog modal-lg" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                                    <h4 class="modal-title" id="modalSubjectLabel">Swimlane</h4>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="modal-body">                            
+                                        <div class="form-group">
+                                            <div class="col-sm-3">
+                                                <label>Swimlane</label> 
+                                                <input id="key" name="key" type="text" maxlength="255" class="form-control"/>                                    
+                                            </div>
+                                            <div class="col-sm-9">
+                                                <label>Criteria</label> 
+                                                <input id="value" name="value" type="text" maxlength="255" class="form-control" placeholder="Regexp is welcome"/>                                    
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">                                
+                                    <button type="button" class="btn btn-generic btn-sm" data-dismiss="modal">
+                                        <span aria-hidden="true"></span> Close
+                                    </button>
+
+                                    <button type="submit" name="partial_add_swimlane" class="btn btn-generic btn-sm">
+                                        <span aria-hidden="true"></span> Add
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
         <script th:inline="javascript">
             $(document).ready(function () {
                 /**
@@ -14,7 +229,6 @@
                  */
                 $(document).ajaxStart(function () {
                     $("#modal_wait").css("display", "block");
-                    $("[id^=modal_add_parent_]").prop("disabled", true);
                 });
 
                 /**
@@ -23,7 +237,6 @@
                  */
                 $(document).ajaxComplete(function () {
                     $("#modal_wait").css("display", "none");
-                    $("[id^=modal_add_parent_]").prop("disabled", false);
                 });
 
                 /**
@@ -49,149 +262,5 @@
                 });
             });
         </script>
-
-        <div class="container-fluid main-content">
-            <h3 class="page-title">Subject</h3>
-            <div>           
-                <form class="form-horizontal" th:object="${subject}" th:action="@{/subject/save}" method="post">
-                    <div class="form-group">
-                        <div class="col-sm-10">
-                            <!--ID-->
-                            <input type="hidden" th:field="*{id}"/>
-                            <!--Slack channels-->
-                            <input type="hidden" th:field="*{channel}"/>
-                            <!--User list-->
-                            <input type="hidden" th:field="*{user}"/>
-                        </div>
-                    </div>
-
-                    <div th:if="${ errorMessage != null }" class="form-group">
-                        <!--Validation-->
-                        <div class="col-sm-10">
-                            <div class="alert alert-danger" role="alert">
-                                <span th:text="${errorMessage}"></span>
-                            </div>  
-                        </div> 
-                    </div> 
-
-                    <!--Subject-->   
-                    <label>Subject</label> 
-                    <div class="form-group">
-                        <div class="col-sm-10">
-                            <input type="text" class="form-control" maxlength="50" th:field="*{name}" placeholder="Subject name"/>
-                            <span th:if="${#fields.hasErrors('name')}" class="help-block" th:errors="*{name}"></span>
-                        </div>
-                    </div>        
-
-                    <!--Description-->   
-                    <div class="form-group">
-                        <div class="col-sm-10">
-                            <label>Description</label> 
-                            <textarea class="form-control" rows="3" th:field="*{description}" placeholder="Description" maxlength="65000"></textarea>
-                        </div>
-                        <span th:if="${#fields.hasErrors('description')}" class="help-block" th:errors="*{description}"></span>
-                    </div>
-
-                    <fieldset>
-                        <legend>Subscription</legend>
-
-                        <!--Mandatory-->                                            
-                        <div class="form-group">
-                            <div class="col-sm-10">
-                                <label class="checkbox">Mandatory
-                                    <input type="checkbox" 
-                                           id="slack" 
-                                           name="mandatory" 
-                                           th:field="*{mandatory}" 
-                                           th:checked="*{mandatory}"
-                                           th:disabled="${#authorization.expression('hasRole(''USER'')')}"/>
-                                    <span class="checkmark"></span>
-                                </label>           
-                            </div>
-                        </div>    
-
-                        <!--User list-->  
-                        <div th:if="${not #lists.isEmpty(subject.user)}">  
-                            <table class="table">
-                                <tr>
-                                    <th>Subscriber</th>
-                                </tr>
-                                <tr th:each="user: ${subject.user}">
-                                    <td> 
-                                        <span th:text="${user.firstName + ' ' + user.lastName}"></span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div> 
-                    </fieldset>
-
-                    <fieldset>
-                        <legend>Notification</legend>
-
-                        <!--Notification-->                                            
-                        <div class="form-group">
-                            <div class="col-sm-10">
-                                <label class="checkbox">Slack notification 
-                                    <input type="checkbox" id="slack" name="slack" th:field="*{notified}" th:checked="*{notified}" />
-                                    <span class="checkmark"></span>
-                                </label>           
-                            </div>
-                        </div>    
-
-                        <!--Slack channel list-->  
-                        <div th:if="${not #lists.isEmpty(subject.channel)}">  
-                            <table class="table">
-                                <tr>
-                                    <th style="width:77.5%">Channel</th>
-                                    <th>Delete</th>
-                                </tr>
-                                <tr th:each="slackChannel, slackChannelStat : ${subject.channel}">
-                                    <td> 
-                                        <span th:text="${slackChannel}"></span>
-                                    </td>
-                                    <td>
-                                        <button type="submit" name="partial_remove_slack_channel" th:value="${slackChannel}" class="btn btn-delete btn-xs">
-                                            <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Remove
-                                        </button>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div> 
-                    </fieldset>
-
-                    <!--Modal--> 
-                    <div id="modalHolder"/>
-
-                    <!--Buttons--> 
-                    <div class="form-group">
-                        <div class="col-sm-10">
-                            <button type="submit" class="btn btn-generic btn-sm">
-                                <span class="glyphicon glyphicon-save" aria-hidden="true"></span> Save
-                            </button>
-
-                            <div class="btn-group pull-right btn-space dropup">
-                                <button type="button" class="btn btn-generic btn-sm" th:id="modal_add_slack_channel">                                         
-                                    <span class="glyphicon glyphicon-bell" aria-hidden="true"></span> Slack channel
-                                </button>
-                            </div>
-
-                            <button id="modal_wait" type="button" class="btn btn-generic btn-sm pull-right btn-space" style="display:none;">
-                                <img th:src="@{'/images/ajax-loader.gif'}"></img>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!--Tracker-->
-                    <div th:if="*{ updatedAt != null }">
-                        <hr/>
-                        <div class="form-group">                        
-                            <div class="col-sm-10">
-                                <label class="pull-right label-edit-information" th:inline="text">Updated by [[*{modifiedBy}]] at [[*{#dates.format(updatedAt, 'yyyy-MM-dd HH:mm:ss')}]]</label>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
     </body>
 </html> 

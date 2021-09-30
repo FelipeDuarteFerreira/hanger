@@ -27,8 +27,10 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import javax.persistence.CascadeType;
 import javax.persistence.CollectionTable;
 import javax.persistence.Column;
@@ -41,15 +43,22 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.JoinTable;
 import javax.persistence.ManyToMany;
+import javax.persistence.MapKeyColumn;
+import javax.persistence.Transient;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.Size;
-import org.hibernate.validator.constraints.NotEmpty;
+import org.commonmark.node.*;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
+import org.json.JSONObject;
 
 /**
  *
  * @author Daniel D GOMES
+ * @author Valdiney V GOMES
  */
 @Entity
-public class Subject extends Tracker implements Serializable {
+public class Subject extends Tracker<Subject> implements Serializable {
 
     private Long id;
     private String name;
@@ -58,9 +67,10 @@ public class Subject extends Tracker implements Serializable {
     private boolean mandatory;
     private Set<String> channel = new HashSet();
     private List<User> user = new ArrayList();
+    private Map<String, String> swimlane = new TreeMap<>();
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long getId() {
         return id;
     }
@@ -87,6 +97,15 @@ public class Subject extends Tracker implements Serializable {
         }
 
         return description;
+    }
+
+    @Transient
+    public String getHTMLDescription() {
+        Parser parser = Parser.builder().build();
+        Node document = parser.parse(this.getDescription());
+        HtmlRenderer renderer = HtmlRenderer.builder().build();
+
+        return renderer.render(document);
     }
 
     public void setDescription(String description) {
@@ -142,6 +161,18 @@ public class Subject extends Tracker implements Serializable {
         this.user.add(user);
     }
 
+    public void setSwimlane(Map<String, String> swimlane) {
+        this.swimlane = swimlane;
+    }
+
+    @ElementCollection
+    @MapKeyColumn(name = "swimlane")
+    @Column(name = "criteria")
+    @CollectionTable(name = "subject_swimlanes", joinColumns = @JoinColumn(name = "id"))
+    public Map<String, String> getSwimlane() {
+        return swimlane;
+    }
+
     @Override
     public int hashCode() {
         int hash = 7;
@@ -164,5 +195,16 @@ public class Subject extends Tracker implements Serializable {
         }
 
         return Objects.equals(this.id, other.id);
+    }
+
+    @Override
+    public String toString() {
+        JSONObject object = new JSONObject();
+        object.put("id", id);
+        object.put("name", name);
+        object.put("description", description);
+        object.put("mandatory", mandatory);
+        object.put("notified", notified);
+        return object.toString(2);
     }
 }

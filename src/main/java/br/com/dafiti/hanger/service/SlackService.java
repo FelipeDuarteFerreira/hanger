@@ -25,20 +25,20 @@ package br.com.dafiti.hanger.service;
 
 import com.ullink.slack.simpleslackapi.SlackChannel;
 import com.ullink.slack.simpleslackapi.SlackSession;
-import com.ullink.slack.simpleslackapi.events.SlackMessagePosted;
 import com.ullink.slack.simpleslackapi.impl.SlackSessionFactory;
-import com.ullink.slack.simpleslackapi.listeners.SlackMessagePostedListener;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import org.springframework.stereotype.Service;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.client.RestTemplate;
@@ -52,20 +52,13 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class SlackService {
 
-    private final String token;
-    private final String webHookUrl;
     private final ConfigurationService configurationService;
     private SlackSession slackSession;
+    private static final Logger LOG = LogManager.getLogger(SlackService.class.getName());
 
     @Autowired
-    public SlackService(
-            ConfigurationService configurationService,
-            @Value("${slackBotToken}") String token,
-            @Value("${webHookUrl}") String webHook) {
-
+    public SlackService(ConfigurationService configurationService) {
         this.configurationService = configurationService;
-        this.token = token;
-        this.webHookUrl = webHook;
     }
 
     /**
@@ -88,20 +81,13 @@ public class SlackService {
 
         if (!connected) {
             try {
-                if (!this.token.isEmpty()) {
-                    this.slackSession = SlackSessionFactory.createWebSocketSlackSession(this.token);
+                if (!configurationService.findByParameter("SLACK_BOT_TOKEN").getValue().isEmpty()) {
+                    this.slackSession = SlackSessionFactory.createWebSocketSlackSession(configurationService.findByParameter("SLACK_BOT_TOKEN").getValue());
                     this.slackSession.connect();
                     connected = this.slackSession.isConnected();
-
-                    if (connected) {
-                        SlackMessagePostedListener listener = (SlackMessagePosted event, SlackSession session) -> {
-                            String content = event.getMessageContent();
-                        };
-                        this.slackSession.addMessagePostedListener(listener);
-                    }
                 }
             } catch (IOException ex) {
-                Logger.getLogger(MailService.class.getName()).log(Level.SEVERE, "Fail connecting to slack", ex);
+                LOG.log(Level.ERROR, "Fail connecting to slack", ex);
             }
         }
 
@@ -149,7 +135,7 @@ public class SlackService {
     public String send(JSONObject payload) {
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<String> request = new HttpEntity<>(payload.toString());
-        return restTemplate.postForObject(webHookUrl, request, String.class);
+        return restTemplate.postForObject(configurationService.findByParameter("SLACK_WEBHOOK_URL").getValue(), request, String.class);
     }
 
     /**
@@ -176,4 +162,17 @@ public class SlackService {
             }
         }
     }
+
+    @Caching(evict = {
+        @CacheEvict(value = "slackChannels", allEntries = true)})
+    public void refresh() {
+        try {
+            if (this.slackSession != null) {
+                this.slackSession.disconnect();
+            }
+        } catch (IOException ex) {
+            LOG.log(Level.ERROR, "Fail disconnecting from slack", ex);
+        }
+    }
+
 }

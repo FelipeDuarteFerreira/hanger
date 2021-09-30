@@ -23,10 +23,19 @@
  */
 package br.com.dafiti.hanger.controller;
 
+import br.com.dafiti.hanger.exception.Message;
 import br.com.dafiti.hanger.model.Job;
+import br.com.dafiti.hanger.model.JobDetails;
 import br.com.dafiti.hanger.service.FlowService;
+import br.com.dafiti.hanger.service.FlowService.Flow;
 import br.com.dafiti.hanger.service.JobApprovalService;
+import br.com.dafiti.hanger.service.JobDetailsService;
+import br.com.dafiti.hanger.service.ServerService;
+import br.com.dafiti.hanger.service.SubjectDetailsService;
 import java.security.Principal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -43,11 +52,23 @@ public class FlowController {
 
     private final FlowService flowService;
     private final JobApprovalService jobApprovalService;
+    private final SubjectDetailsService subjectDetailsService;
+    private final ServerService serverService;
+    private final JobDetailsService jobDetailsService;
 
     @Autowired
-    public FlowController(FlowService flowService, JobApprovalService jobApprovalService) {
+    public FlowController(
+            FlowService flowService,
+            JobApprovalService jobApprovalService,
+            SubjectDetailsService subjectDetailsService,
+            ServerService serverService,
+            JobDetailsService jobDetailsService) {
+
         this.flowService = flowService;
         this.jobApprovalService = jobApprovalService;
+        this.subjectDetailsService = subjectDetailsService;
+        this.serverService = serverService;
+        this.jobDetailsService = jobDetailsService;
     }
 
     /**
@@ -67,10 +88,16 @@ public class FlowController {
             Model model) {
 
         if (job != null) {
+        	Flow flow = flowService.getJobFlow(job, false, expanded);
+        	
             model.addAttribute("job", job);
+            model.addAttribute("subjectSummary", subjectDetailsService.getSummaryOf(job.getSubject()));
             model.addAttribute("warnings", flowService.getFlowWarning(job));
-            model.addAttribute("chart", flowService.getJobFlow(job, false, expanded));
+            model.addAttribute("chart", flow.getConfiguration());
+            model.addAttribute("reach", flow.getReach());
+            model.addAttribute("level", flow.getLevel());
             model.addAttribute("approval", this.jobApprovalService.hasApproval(job, principal));
+            model.addAttribute("servers", this.serverService.list());
         }
 
         return "flow/display";
@@ -91,9 +118,15 @@ public class FlowController {
             Model model) {
 
         if (job != null) {
+        	Flow flow = flowService.getJobFlow(job, true, false);
+
             model.addAttribute("job", job);
-            model.addAttribute("chart", flowService.getJobFlow(job, true, false));
+            model.addAttribute("subjectSummary", subjectDetailsService.getSummaryOf(job.getSubject()));
+            model.addAttribute("chart", flow.getConfiguration());
+            model.addAttribute("reach", flow.getReach());
+            model.addAttribute("level", flow.getLevel());
             model.addAttribute("approval", this.jobApprovalService.hasApproval(job, principal));
+            model.addAttribute("servers", this.serverService.list());
         }
 
         return "flow/display";
@@ -116,5 +149,36 @@ public class FlowController {
         }
 
         return "flow/modalWarning::warning";
+    }
+    
+    /**
+     * Show the job parent modal.
+     *
+     * @param job
+     * @param model
+     * @return
+     */
+    @GetMapping(path = "/flow/modal/parents/details/{id}")
+    public String jobRelativesDetails(
+            @PathVariable(value = "id") Job job,
+            Model model) {
+
+        try {
+            List<JobDetails> jobDetails = new ArrayList<JobDetails>();
+
+            job.getParent().stream().forEach((parent) -> {
+                jobDetails.add(jobDetailsService.getDetailsOf(parent.getParent()));
+            });
+
+            model.addAttribute("jobDetails", jobDetails
+                    .stream()
+                    .sorted((a, b) -> (a.getJob().getName().compareTo(b.getJob().getName())))
+                    .collect(Collectors.toList()));
+            model.addAttribute("job", job);
+        } catch (Exception ex) {
+            model.addAttribute("errorMessage", "Fail getting parameters " + new Message().getErrorMessage(ex));
+        }
+
+        return "flow/modalParentsDetails::parentsDetails";
     }
 }

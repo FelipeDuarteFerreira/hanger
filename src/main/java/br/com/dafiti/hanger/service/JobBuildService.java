@@ -26,11 +26,14 @@ package br.com.dafiti.hanger.service;
 import br.com.dafiti.hanger.model.Job;
 import br.com.dafiti.hanger.model.JobBuild;
 import br.com.dafiti.hanger.model.JobStatus;
+import br.com.dafiti.hanger.option.Flow;
 import br.com.dafiti.hanger.option.Scope;
 import br.com.dafiti.hanger.repository.JobBuildRepository;
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.sql.Time;
+import java.time.LocalDateTime;
+import static java.time.temporal.ChronoUnit.SECONDS;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -45,16 +48,26 @@ public class JobBuildService {
     private final JobBuildRepository jobBuildRepository;
     private final JenkinsService jenkinsService;
     private final JobCheckupService checkupService;
+    private final JobStatusService jobStatusService;
+    private final JobNotificationService jobNotificationService;
+    private final ConcurrentHashMap<Long, LocalDateTime> build;
+
+    private static final Logger LOG = LogManager.getLogger(JobBuildService.class.getName());
 
     @Autowired
     public JobBuildService(
             JobBuildRepository jobBuildRepository,
             JenkinsService jenkinsService,
-            JobCheckupService checkupService) {
+            JobCheckupService checkupService,
+            JobStatusService jobStatusService,
+            JobNotificationService jobNotificationService) {
 
         this.jobBuildRepository = jobBuildRepository;
         this.jenkinsService = jenkinsService;
         this.checkupService = checkupService;
+        this.jobStatusService = jobStatusService;
+        this.jobNotificationService = jobNotificationService;
+        this.build = new ConcurrentHashMap();
     }
 
     /**
@@ -73,7 +86,7 @@ public class JobBuildService {
      * @param id Build ID.
      */
     public void delete(Long id) {
-        jobBuildRepository.delete(id);
+        jobBuildRepository.deleteById(id);
     }
 
     /**
@@ -84,7 +97,7 @@ public class JobBuildService {
      * @return Elapsed time.
      */
     @Cacheable(value = "jobBuildTime", key = "{#job.id, #buildNumber}")
-    public Time findJobBuildTime(
+    public String findJobBuildTime(
             Job job,
             int buildNumber) {
 
@@ -99,33 +112,57 @@ public class JobBuildService {
      * @throws java.net.URISyntaxException
      * @throws java.io.IOException
      */
-    public BuildInfo build(Job job) throws URISyntaxException, IOException {
+    public BuildInfo build(Job job) throws Exception {
         Scope scope;
+        boolean buildable;
         boolean built = false;
         boolean healthy = true;
 
-        //Identify if the job is waiting in queue. 
-        if (!jenkinsService.isInQueue(job)) {
+        //Identifies if the job is waiting in queue. 
+        buildable = !jenkinsService.isInQueue(job);
 
-            //Identify if the job has prevalidation.
-            if (checkupService.hasPrevalidation(job)) {
-                JobStatus jobStatus = job.getStatus();
+        if (buildable) {
+            //Identifies if the job was built recently (10 seconds).
+            if (build.containsKey(job.getId())) {
+                buildable = SECONDS.between(build.get(job.getId()), LocalDateTime.now()) > 10;
 
-                //Identify the job build scope.
-                if (jobStatus == null) {
-                    scope = Scope.FULL;
+                if (!buildable) {
+                    LOG.info("Job " + job.getName() + " duplicated build protection (Job built " + build.get(job.getId()) + ")!");
                 } else {
-                    scope = jobStatus.getScope();
+                    build.put(job.getId(), LocalDateTime.now());
+                }
+            } else {
+                build.put(job.getId(), LocalDateTime.now());
+            }
+
+            if (buildable) {
+                //Identifies if it has prevalidation.
+                if (checkupService.hasPrevalidation(job)) {
+                    JobStatus jobStatus = job.getStatus();
+
+                    //Identifies what is the correct build scope.
+                    if (jobStatus == null) {
+                        scope = Scope.FULL;
+                    } else {
+                        scope = jobStatus.getScope();
+                    }
+
+                    //Prevalidation checkup.
+                    healthy = checkupService.evaluate(job, true, scope);
                 }
 
-                //Evalute prevalidation.
-                healthy = checkupService.evaluate(job, true, scope);
-            }
+                //Identifies if a job is healthy. 
+                if (healthy) {
+                    built = jenkinsService.build(job);
 
-            //Evalute prevalidation. 
-            if (healthy) {
-                built = jenkinsService.build(job);
+                    if (!built) {
+                        jobStatusService.updateFlow(job.getStatus(), Flow.ERROR);
+                        jobNotificationService.notify(job, true);
+                    }
+                }
             }
+        } else {
+            LOG.info("Job " + job.getName() + " duplicated build protection (Job in queue)!");
         }
 
         return new BuildInfo(built, healthy);

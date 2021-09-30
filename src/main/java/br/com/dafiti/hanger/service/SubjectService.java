@@ -23,11 +23,17 @@
  */
 package br.com.dafiti.hanger.service;
 
+import br.com.dafiti.hanger.model.Job;
 import br.com.dafiti.hanger.model.Subject;
 import br.com.dafiti.hanger.model.User;
+import br.com.dafiti.hanger.option.Flow;
 import br.com.dafiti.hanger.repository.SubjectRepository;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -40,14 +46,28 @@ public class SubjectService {
 
     private final SubjectRepository subjectRepository;
     private final UserService userService;
+    private final JobService jobService;
+    private final JenkinsService jenkinsService;
+    private final JobStatusService jobStatusService;
+    private final JobNotificationService jobNotificationService;
+
+    private static final Logger LOG = LogManager.getLogger(SubjectService.class.getName());
 
     @Autowired
     public SubjectService(
             SubjectRepository subjectRepository,
-            UserService userService) {
+            UserService userService,
+            JobService jobService,
+            JenkinsService jenkinsService,
+            JobStatusService jobStatusService,
+            JobNotificationService jobNotificationService) {
 
         this.subjectRepository = subjectRepository;
         this.userService = userService;
+        this.jobService = jobService;
+        this.jenkinsService = jenkinsService;
+        this.jobStatusService = jobStatusService;
+        this.jobNotificationService = jobNotificationService;
     }
 
     public Iterable<Subject> list() {
@@ -55,7 +75,7 @@ public class SubjectService {
     }
 
     public Subject load(Long id) {
-        return subjectRepository.findOne(id);
+        return subjectRepository.findById(id).get();
     }
 
     public void save(Subject subject) {
@@ -63,7 +83,7 @@ public class SubjectService {
     }
 
     public void delete(Long id) {
-        subjectRepository.delete(id);
+        subjectRepository.deleteById(id);
     }
 
     /**
@@ -88,5 +108,44 @@ public class SubjectService {
                 .stream()
                 .filter(x -> x.isMandatory() || x.getUser().contains(user))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Build all jobs in a swimlane.
+     *
+     * @param subject Subject
+     * @param swimlane Swimlane name
+     */
+    public void buildSwimline(Subject subject, String swimlane) {
+        List<Job> jobs = jobService.findBySubjectOrderByName(subject);
+
+        //Identifies swimlane criteria.
+        String criteria = "";
+        Map<String, String> rules = subject.getSwimlane();
+
+        for (Map.Entry<String, String> rule : rules.entrySet()) {
+            if (rule.getKey().equals(swimlane)) {
+                criteria = rule.getValue();
+                break;
+            }
+        }
+
+        //Build jobs that matchs swimlane criteria.
+        for (Job job : jobs) {
+            if (job.getName().matches(criteria)) {
+                try {
+                    if (!jenkinsService.build(job)) {
+                        jobStatusService.updateFlow(job.getStatus(), Flow.ERROR);
+                        jobNotificationService.notify(job, true);
+                    } else {
+                        jobStatusService.updateFlow(job.getStatus(), Flow.QUEUED);
+                    }
+
+                } catch (Exception ex) {
+                    LOG.log(Level.ERROR, "Fail building job " + job.getName() + ".", ex);
+                }
+
+            }
+        }
     }
 }

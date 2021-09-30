@@ -23,21 +23,24 @@
  */
 package br.com.dafiti.hanger.service;
 
+import br.com.dafiti.hanger.model.AuditorData;
 import br.com.dafiti.hanger.model.Blueprint;
 import java.util.HashMap;
 import java.util.Locale;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 import org.apache.commons.mail.DefaultAuthenticator;
 import org.apache.commons.mail.EmailException;
 import org.apache.commons.mail.HtmlEmail;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationContext;
+import org.springframework.scheduling.annotation.Async;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
-import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
-import org.thymeleaf.templateresolver.TemplateResolver;
+import org.thymeleaf.spring5.templateresolver.SpringResourceTemplateResolver;
+import org.thymeleaf.templatemode.TemplateMode;
 
 /**
  *
@@ -48,40 +51,110 @@ import org.thymeleaf.templateresolver.TemplateResolver;
 public class MailService {
 
     private final ConfigurationService configurationService;
+    private final ApplicationContext applicationContext;
+    private final AuditorService auditorService;
+
+    private static final Logger LOG = LogManager.getLogger(MailService.class.getName());
 
     @Autowired
-    public MailService(ConfigurationService configurationService) {
+    public MailService(
+            ConfigurationService configurationService,
+            ApplicationContext applicationContext,
+            AuditorService auditorService) {
+
         this.configurationService = configurationService;
+        this.applicationContext = applicationContext;
+        this.auditorService = auditorService;
     }
 
     /**
-     * Send a mail with a HTML blueprint.
+     * Send mail with a HTML blueprint.
      *
      * @param blueprint blueprint
      */
     @Async
     public void send(Blueprint blueprint) {
-        HtmlEmail mail = new HtmlEmail();
-        
+        this.send(blueprint, null);
+    }
+
+    /**
+     * Send mail with a HTML blueprint and extra log.
+     *
+     * @param blueprint blueprint
+     * @param log Extra log information.
+     */
+    public void send(Blueprint blueprint, String log) {
+
+        try {
+            HtmlEmail mail = new HtmlEmail();
+
+            if (blueprint.getRecipients().size() > 0) {
+                for (String recipient : blueprint.getRecipients()) {
+                    mail.addBcc(recipient);
+                }
+            }
+
+            this.send(blueprint, mail, log);
+        } catch (EmailException ex) {
+            LOG.log(Level.ERROR, "Fail sending e-mail", ex);
+        }
+    }
+
+    /**
+     * Send a mail with a HTML blueprint.
+     *
+     * @param blueprint Blueprint
+     * @param mail Email sender.
+     * @param info Extra log information.
+     * @return Identifies if it was sent sucessfully.
+     */
+    public boolean send(Blueprint blueprint, HtmlEmail mail, String info) {
+        AuditorData auditorData = new AuditorData();
+
         String host = configurationService.getValue("EMAIL_HOST");
         int port = Integer.valueOf(configurationService.getValue("EMAIL_PORT"));
         String email = configurationService.getValue("EMAIL_ADDRESS");
         String password = configurationService.getValue("EMAIL_PASSWORD");
+        boolean sent = true;
+        String log = "";
 
+        //Sents a e-mail. 
         try {
             mail.setHostName(host);
             mail.setSmtpPort(port);
             mail.setAuthenticator(new DefaultAuthenticator(email, password));
-            mail.setSSLOnConnect(true);
+            mail.setSSLOnConnect(port != 25 && port != 80 && port != 3535);
             mail.addHeader("X-Priority", "1");
             mail.setFrom(email);
             mail.setSubject(blueprint.getSubject());
-            mail.addTo(blueprint.getRecipient());
             mail.setHtmlMsg(this.getTemplateHTMLOf(blueprint.getPath(), blueprint.getTemplate(), blueprint.getVariables()));
+
+            if (blueprint.getFile() != null) {
+                mail.attach(blueprint.getFile());
+            }
+
             mail.send();
         } catch (EmailException ex) {
-            Logger.getLogger(MailService.class.getName()).log(Level.SEVERE, "Fail sending e-mail", ex);
+            LOG.log(Level.ERROR, "Fail sending e-mail", ex);
+            log = ex.getCause().getMessage();
+            
+            sent = false;
         }
+
+        //Logs general information and errors in the e-mail. 
+        if (info != null) {
+            auditorData.addData("log", info);
+        }
+
+        auditorData.addData("to", mail.getBccAddresses().toString());
+        auditorData.addData("javascript", blueprint.toString());
+
+        if (!sent) {
+            auditorData.addData("error", log);
+        }
+
+        auditorService.publish("SEND_EMAIL", auditorData.getData());
+        return sent;
     }
 
     /**
@@ -94,10 +167,11 @@ public class MailService {
      */
     private String getTemplateHTMLOf(String path, String template, HashMap<String, Object> variables) {
         //Define the template resolver. 
-        TemplateResolver resolver = new ClassLoaderTemplateResolver();
-        resolver.setPrefix(path += !path.endsWith("/") ? '/' : "");
+        SpringResourceTemplateResolver resolver = new SpringResourceTemplateResolver();
+        resolver.setApplicationContext(applicationContext);
+        resolver.setPrefix("classpath:" + path + (!path.endsWith("/") ? '/' : ""));
         resolver.setSuffix(".html");
-        resolver.setTemplateMode("HTML5");
+        resolver.setTemplateMode(TemplateMode.HTML);
 
         //Define the template engine. 
         TemplateEngine engine = new TemplateEngine();
@@ -106,26 +180,21 @@ public class MailService {
         //Proccess the template. 
         return engine.process(template, new Context(Locale.getDefault(), variables));
     }
-    
+
     /**
      * Verify if configuration of e-mail is ok.
-     * 
+     *
      * @return
      */
     public boolean isEmailOk() {
-    	String host = configurationService.getValue("EMAIL_HOST");
+        String host = configurationService.getValue("EMAIL_HOST");
         String port = configurationService.getValue("EMAIL_PORT");
         String user = configurationService.getValue("EMAIL_ADDRESS");
         String password = configurationService.getValue("EMAIL_PASSWORD");
-        
-        // All parameters need to be full filled.
-        if (host.isEmpty() || 
-    		port.isEmpty() ||
-    		user.isEmpty() || 
-    		password.isEmpty()) {
 
-			return false;
-        }
-        return true;
+        return !(host.isEmpty()
+                || port.isEmpty()
+                || user.isEmpty()
+                || password.isEmpty());
     }
 }

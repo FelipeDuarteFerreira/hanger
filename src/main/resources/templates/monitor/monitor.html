@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity">
     <head lang="en" th:replace="base/header :: head">
         <title>Hanger</title>
     </head>
@@ -7,150 +7,180 @@
         <th:block th:include="base/header :: navbar"></th:block>
 
         <div class="container-fluid main-content">
-            <br/>
-            <ul class="nav nav-tabs" th:if="${not #lists.isEmpty(subjects)}">
+            <ul class="nav nav-pills space-top">
                 <li role="presentation" th:classappend="${#httpServletRequest.getRequestURI().contains('/home') or #httpServletRequest.getRequestURI().endsWith('/') ? 'active home':''}">
-                    <a class="link" title="HOME" th:href="@{'/'}">
+                    <a title="HOME" th:href="@{'/'}">
                         HOME
                     </a>
                 </li>
-                <li role="presentation" th:each="subject : ${subjects}" th:classappend="${#httpServletRequest.getRequestURI().endsWith('/' + subject.id) ? 'active home':''}">
-                    <a th:href="@{'/detail/' + ${subject.id}}" th:inline="text" class="link">
-                        [[${subject.name}]]
+                <li role="presentation" th:each="subjects : ${subjectSummary}" th:classappend="${#httpServletRequest.getRequestURI().endsWith('/' + subjects.subject.id) ? 'active home':''}">
+                    <a th:href="@{'/detail/' + ${subjects.subject.id}}" th:inline="text">                                                                     
+                        <span th:if="${#lists.contains(subjects.subject.user, loggedIn)}" class="glyphicon glyphicon-thumbs-up" th:title="Subscribed"> </span>
+                        [[${subjects.subject.name}]] 
+                        <span class="badge" th:text="${subjects.jobCount}"></span>
                     </a>
                 </li>
-                <li role="presentation" th:classappend="${#httpServletRequest.getRequestURI().endsWith('all') ? 'active home':''}">
-                    <a th:href="@{'/detail/' + all}" title="ALL" class="link">
+                <li role="presentation" th:classappend="${#httpServletRequest.getRequestURI().endsWith('filter') ? 'active home':''}">
+                    <a th:href="@{'/detail/' + filter}" title="ALL">
                         ALL
-                    </a>
+                        <span class="badge" th:text="${all}"></span>
+                    </a>                    
                 </li>
             </ul>
 
-            <div class="tab-content">
-                <script th:inline="javascript">
-                    /**
-                     * Define ajax start behavior. 
-                     * @returns {undefined}
-                     */
-                    $(document).ajaxStart(function () {
-                        $("#wait").css("display", "block");
-                        $("#add_job").prop("disabled", true);
-                    });
+            <div class="tab-content" th:if="${#httpServletRequest.getRequestURI().endsWith('filter')}">
+                <form class="form-horizontal" th:action="@{/detail/filter}" method="POST">
+                    <div class="space-top">
+                        <div class="form-group">                            
+                            <div class="col-md-12">
+                                <select class="selectpicker form-control" 
+                                        name="status"
+                                        data-live-search="true"  
+                                        data-actions-box="true"
+                                        multiple="true" 
+                                        th:checked="SUCCESS">
 
-                    /**
-                     * Define ajax complete behavior. 
-                     * @returns {undefined}
-                     */
-                    $(document).ajaxComplete(function () {
-                        $("#wait").css("display", "none");
-                        $("#add_job").prop("disabled", false);
-                    });
+                                    <!--WAITING-->
+                                    <option data-content="<span class='label label-neutral'>WAITING</span>" value="WAITING">WAITING</option>
+                                    <option data-content="<span class='label label-neutral'>RESTRICTED</span>" value="RESTRICTED">RESTRICTED</option>
+                                    <option data-content="<span class='label label-neutral'>DISABLED</span>" value="DISABLED">DISABLED</option> 
 
-                    /**
-                     * Show add subject to job modal. 
-                     * 
-                     * @param {type} e
-                     * @returns {undefined}
-                     */
-                    function addJobModal(SubjectID) {
-                        var url = /*[[@{/detail/modal/}]]*/ "/detail/modal/1"
+                                    <!--SUCCESS-->
+                                    <option data-content="<span class='label label-success'>PARTIAL</span>" value="PARTIAL">PARTIAL</option> 
+                                    <option data-content="<span class='label label-success'>SUCCESS</span>" value="SUCCESS">SUCCESS</option>                                 
+                                    <option data-content="<span class='label label-success'>UNSTABLE</span>" value="UNSTABLE">UNSTABLE</option>
+                                    <option data-content="<span class='label label-success'>APPROVED</span>" value="APPROVED">APPROVED</option> 
 
-                        $.ajax({
-                            type: "GET",
-                            url: url + SubjectID,
-                            timeout: 30000,
-                            success: function (result) {
-                                $("#modalHolder").html(result);
-                                $("#modalJobList").modal({backdrop: 'static', keyboard: false});
-                                $('.selectpicker').selectpicker();
-                            },
-                            error: function (e) {
-                                alert("Fail loading jobs from Server " + e);
-                            }
-                        });
-                    }
+                                    <!--RUNNING-->
+                                    <option data-content="<span class='label label-primary'>QUEUED</span>" value="QUEUED">QUEUED</option>
+                                    <option data-content="<span class='label label-primary'>REBUILD</span>" value="REBUILD">REBUILD</option>
+                                    <option data-content="<span class='label label-primary'>RUNNING</span>"  value="RUNNING">RUNNING</option>
+                                    <option data-content="<span class='label label-primary'>CHECKUP</span>" value="CHECKUP">CHECKUP</option> 
 
-                    /**
-                     * Show delete job modal.
-                     * 
-                     * @param {type} jobID Job ID
-                     * @param {type} subjectID Subject ID
-                     * @param {type} jobName Job Name
-                     * @param {type} subjectName Subject Name
-                     * @returns {undefined}
-                     */
-                    function deleteJobModal(jobID, subjectID, jobName, subjectName) {
-                        document.getElementById("subjectNameInModal").innerText = subjectName;
-                        document.getElementById("jobNameInModal").innerText = jobName;
-                        document.getElementById("confirmRemoveJob").href = "remove/" + jobID + "/" + subjectID;
+                                    <!--FAILURE-->
+                                    <option data-content="<span class='label label-danger'>UNHEALTHY</span>" value="UNHEALTHY">UNHEALTHY</option> 
+                                    <option data-content="<span class='label label-danger'>BLOCKED</span>" value="BLOCKED">BLOCKED</option> 
+                                    <option data-content="<span class='label label-danger'>FAILURE</span>" value="FAILURE">FAILURE</option> 
+                                    <option data-content="<span class='label label-danger'>ABORTED</span>" value="ABORTED">ABORTED</option>
+                                    <option data-content="<span class='label label-danger'>DISAPPROVED</span>" value="DISAPPROVED">DISAPPROVED</option> 
+                                    <option data-content="<span class='label label-danger'>ERROR</span>" value="ERROR">ERROR</option> 
+                                </select>                                
+                            </div>                        
+                        </div>
+                        <button type="submit" 
+                                class="btn btn-generic" 
+                                id="filter">
+                            <span class="glyphicon glyphicon-filter" aria-hidden="true"></span> Filter
+                        </button>  
+                    </div>             
+                </form>
+            </div>
 
-                        $("#modalRemoveJobFromSubject").modal();
-                    }
+            <hr/>
+
+            <div th:if="${not #httpServletRequest.getRequestURI().contains('/detail/')}">
+                <!--Home refresh timeout-->
+                <script type="text/javascript">
+                    setTimeout("location.reload(true);", 120000);
                 </script>
 
-                <div class="space-top" 
-                     th:if="${not #httpServletRequest.getRequestURI().contains('/detail/')}">
+                <!--Table or graph selector-->
+                <ul class="nav nav-pills pull-right" id="tabSelector">                    
+                    <li class="active">
+                        <a data-toggle="tab" href="#list">
+                            <span class="glyphicon glyphicon-th-list" title="Table"></span>
+                        </a>                                
+                    </li>
+                    <li >
+                        <a data-toggle="tab" href="#graph">
+                            <span class="glyphicon glyphicon-signal" title="Chart"></span>
+                        </a>  
+                    </li>
+                </ul>
 
-                    <!--Home refresh timeout-->
-                    <script type="text/javascript">
-                        setTimeout("location.reload(true);", 120000);
-                    </script>
+                <div class="tab-content">
+                    <!--Graph view-->
+                    <div id="graph" class="tab-pane fade in">
+                        <div class="row col-sm-12">
+                            <fieldset>
+                                <legend>
+                                    Subjects
+                                </legend>
+                            </fieldset>
 
-                    <table id="table_clean" class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th></th>                                
-                                <th class="no-sort"></th>  
-                                <th><span class="glyphicon glyphicon-book" alt="JOBS" title="JOBS"></span></th>  
-                                <th><img class="hanger-img-sm" th:src="@{'/images/SUCCESS.png'}" alt="SUCCESS" title="SUCCESS"></img></th>
-                                <th><img class="hanger-img-sm" th:src="@{'/images/WAITING.png'}" alt="WAITING" title="WAITING"></img></th>
-                                <th><img class="hanger-img-sm" th:src="@{'/images/REBUILD.png'}" alt="BUILDING" title="BUILDING"></img></th> 
-                                <th><img class="hanger-img-sm" th:src="@{'/images/RUNNING.png'}" alt="RUNNING" title="RUNNING"></img></th>                                
-                                <th><img class="hanger-img-sm" th:src="@{'/images/WARNING.png'}" alt="WARNING" title="WARNING"></img></th> 
-                                <th><img class="hanger-img-sm" th:src="@{'/images/FAILURE.png'}" alt="FAILURE" title="FAILURE"></img></th> 
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:each="subjects : ${subjectDetails}">
-                                <td><a th:href="@{'/detail/' + ${subjects.subject.id}}" class="link" th:text="${subjects.subject.name}" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
+                            <block th:each="subjects : ${subjectDetails}" >
+                                <div th:if="${subjects.total > 0}" class="space-top col-md-2">
+                                    <center>
+                                        <a th:href="@{'/detail/' + ${subjects.subject.id}}" th:text="${subjects.subject.name}" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a>
+                                        <canvas th:id="'chart_' + ${subjects.subject.id}" width="200" height="200"></canvas>
+                                    </center>
+                                </div>
+                            </block>
+                        </div>
+                    </div>
 
-                                <td width="18.5%">
-                                    <div class="progress">
-                                        <div class="progress-bar progress-bar-success" th:inline="text" th:attr="style='width:' +  ${ subjects.successPercent } + '%'" title="SUCCESS">
-                                            <span class="sr-only"></span> [[${subjects.successPercent}]]%
-                                        </div>
-                                        <div class="progress-bar progress-bar-building" th:inline="text" th:attr="style='width:' +  ${ subjects.buildingPercent } + '%'" title="BUILDING">
-                                            <span class="sr-only"></span> [[${subjects.buildingPercent}]]%
-                                        </div>
-                                        <div class="progress-bar progress-bar-warning" th:inline="text" th:attr="style='width:' + ${ subjects.warningPercent } + '%'" title="WARNING">
-                                            <span class="sr-only"></span> [[${subjects.warningPercent}]]% 
-                                        </div>
-                                        <div class="progress-bar progress-bar-danger" th:inline="text" th:attr="style='width:' + ${ subjects.failurePercent } + '%'" title="FAILURE">
-                                            <span class="sr-only"></span> [[${subjects.failurePercent}]]% 
-                                        </div>
-                                        <div class="progress-bar progress-bar-waiting" th:inline="text" th:attr="style='width:' + ${ subjects.waitingPercent } + '%'" title="WAITING">
-                                            <span class="sr-only"></span> [[${subjects.waitingPercent}]]% 
-                                        </div>
-                                    </div>
-                                </td>
+                    <!--Table view-->
+                    <div id="list" class="tab-pane fade active in">
+                        <table id="table_clean" class="table">
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>                                
+                                    <th class="no-sort">Status</th>  
+                                    <th><span class="label label-success" title="SUCCESS">SUCCESS</span></th>
+                                    <th><span class="label label-neutral" title="WAITING">WAITING</span></th>
+                                    <th><span class="label label-primary" title="BUILDING">BUILDING</span></th> 
+                                    <th><span class="label label-warning" title="WARNING">WARNING</span></th> 
+                                    <th><span class="label label-danger" title="FAILURE">FAILURE</span></th> 
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="subjects : ${subjectDetails}">
+                                    <td><a th:href="@{'/detail/' + ${subjects.subject.id}}" th:text="${subjects.subject.name}" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
 
-                                <td width="5.5%"><a th:href="@{'/detail/' + ${subjects.subject.id}}" class="link" th:text="${subjects.total}" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
-                                <td width="5.5%"><a th:href="@{'/detail/' + ${subjects.subject.id}}" class="link" th:text="${subjects.success}> 0 ? ${subjects.success} : ''" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
-                                <td width="5.5%"><a th:href="@{'/detail/' + ${subjects.subject.id}}" class="link" th:text="${subjects.waiting} > 0 ? ${subjects.waiting} : ''" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
-                                <td width="5.5%"><a th:href="@{'/detail/' + ${subjects.subject.id}}" class="link" th:text="${subjects.building} > 0 ? ${subjects.building} : ''" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
-                                <td width="5.5%"><a th:href="@{'/detail/' + ${subjects.subject.id}}" class="link" th:text="${subjects.running} > 0 ? ${subjects.running} : ''" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
-                                <td width="5.5%"><a th:href="@{'/detail/' + ${subjects.subject.id}}" class="link" th:text="${subjects.warning} > 0 ? ${subjects.warning} : ''" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
-                                <td width="5.5%"><a th:href="@{'/detail/' + ${subjects.subject.id}}" class="link" th:text="${subjects.failure} > 0 ? ${subjects.failure} : ''" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    <td width="22.5%">
+                                        <div class="progress">
+                                            <div class="progress-bar progress-bar-success" th:inline="text" th:attr="style='width:' +  ${ subjects.successPercent } + '%'" title="SUCCESS">
+                                                <span class="sr-only"></span> [[${#numbers.formatDecimal(subjects.successPercent, 0, 0)}]]%
+                                            </div>
+                                            <div class="progress-bar progress-bar-building" th:inline="text" th:attr="style='width:' +  ${ subjects.buildingPercent } + '%'" title="BUILDING">
+                                                <span class="sr-only"></span> [[${#numbers.formatDecimal(subjects.buildingPercent, 0, 0)}]]%
+                                            </div>
+                                            <div class="progress-bar progress-bar-warning" th:inline="text" th:attr="style='width:' + ${ subjects.warningPercent } + '%'" title="WARNING">
+                                                <span class="sr-only"></span> [[${#numbers.formatDecimal(subjects.warningPercent, 0, 0)}]]% 
+                                            </div>
+                                            <div class="progress-bar progress-bar-danger" th:inline="text" th:attr="style='width:' + ${ subjects.failurePercent } + '%'" title="FAILURE">
+                                                <span class="sr-only"></span> [[${#numbers.formatDecimal(subjects.failurePercent, 0, 0)}]]% 
+                                            </div>
+                                            <div class="progress-bar progress-bar-waiting" th:inline="text" th:attr="style='width:' + ${ subjects.waitingPercent } + '%'" title="WAITING">
+                                                <span class="sr-only"></span> [[${#numbers.formatDecimal(subjects.waitingPercent, 0, 0)}]]% 
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td width="5.5%"><a th:href="@{'/detail/' + ${subjects.subject.id}}"  th:text="${subjects.success}> 0 ? ${subjects.success} : ''" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
+                                    <td width="5.5%"><a th:href="@{'/detail/' + ${subjects.subject.id}}"  th:text="${subjects.waiting} > 0 ? ${subjects.waiting} : ''" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
+                                    <td width="5.5%"><a th:href="@{'/detail/' + ${subjects.subject.id}}"  th:text="${subjects.building} > 0 ? ${subjects.building} : ''" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
+                                    <td width="5.5%"><a th:href="@{'/detail/' + ${subjects.subject.id}}"  th:text="${subjects.warning} > 0 ? ${subjects.warning} : ''" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
+                                    <td width="5.5%"><a th:href="@{'/detail/' + ${subjects.subject.id}}"  th:text="${subjects.failure} > 0 ? ${subjects.failure} : ''" th:classappend="${#httpServletRequest.getRequestURI().contains('/' + subjects.subject.id) ? 'active':''}"></a></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+            </div>
 
-                <div class="space-top" th:if="${#httpServletRequest.getRequestURI().contains('/detail/') }">
+            <div class="tab-content">
+                <div th:if="${#httpServletRequest.getRequestURI().contains('/detail/') }">
+                    <ul th:if="${not #lists.isEmpty(swimlanes)}" class="pager">
+                        <li th:if="${swimlane.key != 'ALL'}" th:each="swimlane, swimlaneStat: ${swimlanes}">
+                            <a th:href="${'#' + swimlane.key}" th:text="${swimlane.key}" class="pager-item"></a>
+                        </li>
+                    </ul>  
+
                     <div th:if="${currentSubject.description != null and currentSubject.description != ''}">
-                        <pre>
-                            <code class="language-free" th:text="${currentSubject.description}"></code>
-                        </pre>
+                        <div 
+                            class="markdown" 
+                            th:utext="${currentSubject.getHTMLDescription()}"></div>
                     </div>
 
                     <!-- Job details list-->
@@ -190,32 +220,268 @@
                 </div>
             </div>
 
-            <!--Add job button-->
+            <!--Subject action buttons-->
             <div class="form-group">
                 <div sec:authorize="isAuthenticated()"> 
                     <div th:if="${#httpServletRequest.getRequestURI().contains('/detail/') 
-                         and not #httpServletRequest.getRequestURI().contains('/all')}">
+                         and not #httpServletRequest.getRequestURI().contains('/filter')}">
 
                         <hr/>
 
-                        <div class="col-sm-12">
-                            <button id="add_job" 
-                                    class="btn btn-generic btn-sm btn-home" 
-                                    th:attr="onclick='addJobModal(' + ${currentSubject.id} + ');'">
-                                <span class="glyphicon glyphicon-file" aria-hidden="true"></span> Add Job
-                            </button>
+                        <a th:href="@{'/subject/edit/' + ${currentSubject.id}}" class="btn btn-link btn-sm">
+                            <span class="glyphicon glyphicon-edit" aria-hidden="true"></span> Edit subject
+                        </a>
 
-                            <button id="wait" 
-                                    type="button" 
-                                    class="btn btn-generic btn-sm pull-right btn-space" 
-                                    style="display:none;">
+                        <button id="add_job" 
+                                class="btn btn-link btn-sm" 
+                                th:attr="onclick='addJobModal(' + ${currentSubject.id} + ');'">
+                            <span class="glyphicon glyphicon-magnet" aria-hidden="true"></span> Add job
+                        </button>
 
-                                <img th:src="@{'/images/ajax-loader.gif'}"></img>
-                            </button>
-                        </div>
+                        <label class="btn btn-link btn-sm pull-right" th:if="${not currentSubject.mandatory}">
+                            <input  
+                                name="subscribe"
+                                type="checkbox"
+                                th:id="subscribe" 
+                                th:value="${currentSubject.id}" 
+                                th:checked="${#lists.contains(currentSubject.user, loggedIn)}"
+                                th:disabled="${!#authorization.expression('isAuthenticated()')}"
+                                th:text="${#lists.contains(currentSubject.user, loggedIn) ? ' Unsubscribe': ' Subscribe'}" />
+                        </label>
+
+                        <button id="wait" 
+                                type="button" 
+                                class="btn btn-generic btn-sm pull-right btn-space" 
+                                style="display:none;">
+
+                            <img th:src="@{'/images/ajax-loader.gif'}"></img>
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
+
+        <a href="#" class="back_top">
+            <span class="glyphicon glyphicon-chevron-up" aria-hidden="true"></span>
+        </a>
+
+        <script th:inline="javascript">
+            /*<![CDATA[*/
+
+            //Iterates on each subject detail. 
+            /*[# th:each="subjects : ${subjectDetails}"]*/
+
+            //Identifies if there are at least one job. 
+            /*[# th:if="${subjects.total}> 0 "]*/
+            var chart = 'chart_' + /*[[${subjects.subject.id}]]*/ "id";
+            var context = document.getElementById(chart);
+
+            var labels = [];
+            var values = [];
+            var backgroundColors = [];
+
+            /*[# th:if="${subjects.success}> 0 "]*/
+            labels.push("SUCCESS");
+            values.push(/*[[${subjects.success}]]*/);
+            backgroundColors.push("#20B2AA");
+            /*[/]*/
+
+            /*[# th:if="${subjects.waiting}> 0 "]*/
+            labels.push("WAITING");
+            values.push(/*[[${subjects.waiting}]]*/);
+            backgroundColors.push("#E5E8EC");
+            /*[/]*/
+
+            /*[# th:if="${subjects.building}> 0 "]*/
+            labels.push("BUILDING");
+            values.push(/*[[${subjects.building}]]*/);
+            backgroundColors.push("#F6F558");
+            /*[/]*/
+
+            /*[# th:if="${subjects.warning}> 0 "]*/
+            labels.push("WARNING");
+            values.push(/*[[${subjects.warning}]]*/);
+            backgroundColors.push("#FFA500");
+            /*[/]*/
+
+            /*[# th:if="${subjects.failure}> 0 "]*/
+            labels.push("FAILURE");
+            values.push(/*[[${subjects.failure}]]*/);
+            backgroundColors.push("#E15759");
+            /*[/]*/
+
+            var myChart = new Chart(context, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                            data: values,
+                            backgroundColor: backgroundColors,
+                            borderColor: "#FFFFFF",
+                            borderWidth: 2
+                        }]
+                },
+                options: {
+                    responsive: true,
+                    legend: {
+                        display: false
+                    },
+                    layout: {
+                        padding: {
+                            left: 0,
+                            right: 0,
+                            top: 20,
+                            bottom: 20
+                        }
+                    }
+                }
+            });
+
+            myChart.update();
+            /*[/]*/
+            /*[/]*/
+
+            /**
+             * Show add subject to job modal. 
+             * @param {type} SubjectID
+             * @returns {undefined}
+             */
+            function addJobModal(SubjectID) {
+                var url = /*[[@{/detail/modal/}]]*/ "/detail/modal/1";
+
+                $.ajax({
+                    type: "GET",
+                    url: url + SubjectID,
+                    timeout: 30000,
+                    success: function (result) {
+                        $("#modalHolder").html(result);
+                        $("#modalJobList").modal({backdrop: 'static', keyboard: false});
+                        $('.selectpicker').selectpicker();
+                    },
+                    error: function (e) {
+                        alert("Fail loading jobs from Server " + e);
+                    }
+                });
+            }
+
+            /**
+             * Show delete job modal.
+             * 
+             * @param {type} jobID Job ID
+             * @param {type} subjectID Subject ID
+             * @param {type} jobName Job Name
+             * @param {type} subjectName Subject Name
+             * @returns {undefined}
+             */
+            function deleteJobModal(jobID, subjectID, jobName, subjectName) {
+                document.getElementById("subjectNameInModal").innerText = subjectName;
+                document.getElementById("jobNameInModal").innerText = jobName;
+                document.getElementById("confirmRemoveJob").href = "remove/" + jobID + "/" + subjectID;
+                $("#modalRemoveJobFromSubject").modal();
+            }
+
+            $(document).ready(function () {
+                if (location.hash) {
+                    $("a[href='" + location.hash + "']").tab("show");
+                }
+
+                /**
+                 * Identifies the selected tab. 
+                 */
+                $(document.body).on("click", "a[data-toggle='tab']", function (event) {
+                    location.hash = this.getAttribute("href");
+                });
+
+                /**
+                 * Toast configuration. 
+                 */
+                toastr.options = {
+                    "closeButton": true,
+                    "progressBar": true,
+                    "positionClass": "toast-top-right",
+                    "timeOut": "1000",
+                    "showEasing": "swing",
+                    "hideEasing": "linear",
+                    "showMethod": "fadeIn",
+                    "hideMethod": "fadeOut"
+                };
+                /**
+                 * Define ajax start behavior. 
+                 * @returns {undefined}
+                 */
+                $(document).ajaxStart(function () {
+                    $("#wait").css("display", "block");
+                    $("#add_job").prop("disabled", true);
+                });
+                /**
+                 * Define ajax complete behavior. 
+                 * @returns {undefined}
+                 */
+                $(document).ajaxComplete(function () {
+                    $("#wait").css("display", "none");
+                    $("#add_job").prop("disabled", false);
+                });
+                // Exibe ou oculta o botão
+                $(window).scroll(function () {
+                    if (jQuery(this).scrollTop() > 100) {
+                        jQuery('.back_top').fadeIn(100);
+                    } else {
+                        jQuery('.back_top').fadeOut(100);
+                    }
+                });
+                // Faz animação para subir
+                $('.back_top').click(function (event) {
+                    event.preventDefault();
+                    $('html, body').animate({scrollTop: 0}, 400);
+                });
+                /**
+                 * Set header CSRF Token.
+                 * @returns {undefined}
+                 */
+                $.ajaxSetup({
+                    headers: {'X-CSRF-Token': $('#_csrf').attr('content')}
+                });
+                /**
+                 * Subject subscription and unsubscription.
+                 * @returns {undefined}
+                 */
+                $("#subscribe").change(function () {
+                    var url;
+                    var subject = $(this).val();
+                    var subscription = $(this).prop("checked");
+                    if (subscription) {
+                        url = /*[[@{/subject/subscribe/}]]*/ "/subject/subscribe/";
+                    } else {
+                        url = /*[[@{/subject/unsubscribe/}]]*/ "/subject/unsubscribe/";
+                    }
+
+                    $.ajax({
+                        type: "POST",
+                        url: url,
+                        data: subject,
+                        contentType: "text/html",
+                        timeout: 30000,
+                        success: function (result) {
+                            if (subscription) {
+                                toastr.success('Subscribed');
+                                setTimeout(function () {
+                                    window.location.reload(1);
+                                }, 1000);
+                            } else {
+                                toastr.success('Unsubscribed');
+                                setTimeout(function () {
+                                    window.location.reload(1);
+                                }, 1000);
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            toastr.error('Subscription failure');
+                            alert("Subscription error " + xhr.responseText);
+                        }
+                    });
+                });
+            });
+            /*]]>*/
+        </script>
     </body>
 </html>

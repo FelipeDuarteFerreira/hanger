@@ -31,6 +31,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
+import org.json.JSONObject;
 
 /**
  * Contains all generic parameters and its paramValues.
@@ -38,7 +39,7 @@ import javax.persistence.ManyToOne;
  * @author Helio Leal
  */
 @Entity
-public class Configuration extends Tracker implements Serializable {
+public class Configuration extends Tracker<Configuration> implements Serializable {
 
     private Long id;
     private String parameter;
@@ -74,7 +75,7 @@ public class Configuration extends Tracker implements Serializable {
     }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long getId() {
         return id;
     }
@@ -171,5 +172,15 @@ public class Configuration extends Tracker implements Serializable {
         }
 
         return Objects.equals(this.id, other.id);
+    }
+
+    @Override
+    public String toString() {
+        JSONObject object = new JSONObject();
+        object.put("id", id);
+        object.put("parameter", parameter);
+        object.put("value", value);
+        object.put("name", name);
+        return object.toString(2);
     }
 }

@@ -6,21 +6,39 @@
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
         <div class="container-fluid main-content">
-            <center>           
-                <div class="tree-subject">
-                    <div  th:if="${not #lists.isEmpty(job.subject)}">
-                        <span class="label label-hanger" th:each="subject : ${job.subject}" th:inline="text">
-                            <a th:href="@{'/detail/' + ${subject.id}}" th:inline="text" class="link"> [[${subject.name}]]</a>
-                        </span>
-
-                        <hr/>
-                    </div> 
-
-                    <div th:if="${not #lists.isEmpty(warnings)}">
-                        <img class="status hanger-img-sm" th:src="@{'/images/WARNING.png'}" th:title="WARNING"></img>
-                        <button th:inline="text" class="btn btn-link hanger-font-sm hanger-no-border" th:id="'modal_warning_' + ${job.id}" th:value="${job.id}">[[${#lists.size(warnings)}]] warning in this flow</button>
-                    </div>
-                </div>
+            <div style="text-align:center">          
+                <ul class="nav nav-pills space-top">
+                    <li role="presentation" class="pull-right disabled">  
+                   		 <a>                                                 
+	                         REACH 
+	                         <span class="badge" th:text="${reach}"></span>
+                         </a>
+                    </li>
+                    <li role="presentation" class="pull-right disabled"> 
+                    	<a>                                                  
+	                         LEVEL
+	                         <span class="badge" th:text="${level}"></span>
+                        </a>
+                    </li>
+                   <li role="presentation" class="pull-right" th:each="subjects : ${subjectSummary}">
+                        <a th:href="@{'/detail/' + ${subjects.subject.id}}" th:inline="text">                                                     
+                            [[${subjects.subject.name}]] 
+                            <span class="badge" th:text="${subjects.jobCount}"></span>
+                        </a>
+                    </li>                    
+                    <li role="presentation" th:if="${not #lists.isEmpty(warnings)}">
+                        <a href="#" th:id="'modal_warning_' + ${job.id}" th:name="${job.id}" th:inline="text">                                                     
+                            WARNING 
+                            <span class="badge badge-warning" th:text="${#lists.size(warnings)}"></span>
+                        </a>
+                    </li>
+                    <li role="presentation" th:if="${not #lists.isEmpty(job.email)}">
+                        <a href="#" th:id="'modal_emails_' + ${job.id}" th:name="${job.id}" th:inline="text">                                                     
+                            E-MAIL 
+                            <span class="badge" th:text="${#lists.size(job.email)}"></span>
+                        </a>
+                    </li>
+                </ul>
 
                 <div th:if="${errorMessage != null}">
                     <!--Error-->
@@ -39,9 +57,9 @@
                         </div>
                     </div>
                 </div>
-            </center>
+            </div>
 
-            <div class="chart dragscroll" id="flow"></div>
+            <div class="chart dragscroll" id="flow" style="overflow-y: auto; margin-left: 225px; left: 0px"></div>
 
             <div id="zoom_control" class="btn-group-vertical" >
                 <button title="Zoom Out" role="button" id="zoom_in" class="btn btn-group-md"><span class="glyphicon glyphicon-zoom-in"></span></button>
@@ -68,78 +86,92 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                        <h4 class="modal-title" id="modalJobListLabel">Glossary</h4>
+                        <h4 class="modal-title" id="modalJobListLabel">What does each status means?</h4>
                     </div>
                     <div class="modal-body">
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th scope="col">Icon</th>
                                     <th scope="col">Name</th>
                                     <th scope="col">Description</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                <!--WAITING-->
                                 <tr>
-                                    <td><img class="hanger-image" th:src="@{'/images/WAITING.png'}"></img></td>
-                                    <td><p>WAITING</p></td>
+                                    <td><span class="label label-neutral">WAITING</span></td>
                                     <td>Job was not built today yet</td>
                                 </tr>
                                 <tr>
-                                    <td><img class="hanger-image" th:src="@{'/images/REBUILD.png'}"></img></td>
-                                    <td><p>REBUILD</p></td>
-                                    <td>Job is being prepared</td>
+                                    <td><span class="label label-neutral">RESTRICTED</span></td>
+                                    <td>Job has time restriction</td>
+                                </tr> 
+                                <tr>
+                                    <td><span class="label label-default">DISABLED</span></td>
+                                    <td>Job is disabled</td>
+                                </tr>   
+
+                                <!--SUCCESS-->
+                                <tr>
+                                    <td><span class="label label-partial">PARTIAL</span></td>
+                                    <td>Job builded with partial dependencies</td>
                                 </tr>
                                 <tr>
-                                    <td><img class="hanger-image" th:src="@{'/images/RUNNING.png'}"></img></td>
-                                    <td><p>RUNNING</p></td>
-                                    <td>Job is running</td>
-                                </tr>
-                                <tr>
-                                    <td><img class="hanger-image" th:src="@{'/images/SUCCESS.png'}"></img></td>
-                                    <td><p>SUCCESS</p></td>
+                                    <td><span class="label label-success">SUCCESS</span></td>
                                     <td>Job build finished successfully</td>
                                 </tr>
                                 <tr>
-                                    <td><img class="hanger-image" th:src="@{'/images/UNHEALTHY.png'}"></img></td>
-                                    <td><p>UNHEALTHY</p></td>
+                                    <td><span class="label label-success">UNSTABLE</span></td>
+                                    <td>Job build finished successfully but failed at least one time during the day</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="label label-success">APPROVED</span></td>
+                                    <td>Unhealthy job approved to continue</td>
+                                </tr> 
+
+                                <!--RUNNING-->
+                                <tr>
+                                    <td><span class="label label-primary">REBUILD</span></td>
+                                    <td>Job is being prepared</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="label label-primary">RUNNING</span></td>
+                                    <td>Job is running</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="label label-primary">CHECKUP</span></td>
+                                    <td>Job checkups are running</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="label label-primary">QUEUED</span></td>
+                                    <td>Job is waiting to run on a queue</td>
+                                </tr>
+
+                                <!--FAILURE-->
+                                <tr>
+                                    <td><span class="label label-danger">UNHEALTHY</span></td>
                                     <td>Post-validation job checkup failed</td>
                                 </tr>
                                 <tr>
-                                    <td><img class="hanger-image" th:src="@{'/images/BLOCKED.png'}"></img></td>
-                                    <td><p>BLOCKED</p></td>
+                                    <td><span class="label label-danger">BLOCKED</span></td>
                                     <td>Pre-validation job checkup failed</td>
                                 </tr>
                                 <tr>
-                                    <td><img class="hanger-image" th:src="@{'/images/FAILURE.png'}"></img></td>
-                                    <td><p>FAILURE</p></td>
+                                    <td><span class="label label-danger">FAILURE</span></td>
                                     <td>Build failure</td>
                                 </tr>
                                 <tr>
-                                    <td><img class="hanger-image" th:src="@{'/images/ABORTED.png'}"></img></td>
-                                    <td><p>ABORTED</p></td>
+                                    <td><span class="label label-danger">ABORTED</span></td>
                                     <td>Build aborted</td>
                                 </tr>
                                 <tr>
-                                    <td><img class="hanger-image" th:src="@{'/images/APPROVED.png'}"></img></td>
-                                    <td><p>APPROVED</p></td>
-                                    <td>Unhealthy job approved to continue</td>
-                                </tr>
-                                <tr>
-                                    <td><img class="hanger-image" th:src="@{'/images/DISAPPROVED.png'}"></img></td>
-                                    <td><p>DISAPPROVED</p></td>
+                                    <td><span class="label label-danger">DISAPPROVED</span></td>
                                     <td>Unhealthy job not approved to continue</td>
                                 </tr>
                                 <tr>
-                                    <td><img class="hanger-image" th:src="@{'/images/ERROR.png'}"></img></td>
-                                    <td><p>ERROR</p></td>
+                                    <td><span class="label label-danger">ERROR</span></td>
                                     <td>Something really weird happened :O</td>
-                                </tr>
-                                <tr>
-                                    <td><img class="hanger-image" th:src="@{'/images/DISABLED.png'}"></img></td>
-                                    <td><p>DISABLED</p></td>
-                                    <td>Job is disabled</td>
-                                </tr>
+                                </tr> 
                             </tbody>
                         </table>
                     </div>
@@ -159,7 +191,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                        <h4 class="modal-title" id="modalParentLabel">Attention!</h4>
+                        <h4 class="modal-title" id="modalParentLabel">Attention</h4>
                     </div>
                     <div class="modal-body">
                         <span>This action forces all mesh to be rebuilt. Are you sure?</span>
@@ -177,7 +209,7 @@
         </div>
 
         <!--AJAX Parent modal --> 
-        <div id="modalHolder"/>
+        <div id="modalHolder"></div>
 
         <script th:inline="javascript">
             /*<![CDATA[*/
@@ -215,7 +247,7 @@
              */
             $("[id^=modal_warning_]").click(function () {
                 var url = /*[[@{/flow/warning/}]]*/ "/flow/warning/";
-                var job = $(this).val();
+                var job = $(this).attr("name");
 
                 $.ajax({
                     type: "GET",
@@ -230,7 +262,27 @@
                     }
                 });
             });
+           
+            /**
+             * Modal email action.                 
+             */
+            $("[id^=modal_emails_]").click(function () {
+                var url = /*[[@{/job/emails/}]]*/ "/job/emails/";
+                var job = $(this).attr("name");
 
+                $.ajax({
+                    type: "GET",
+                    url: url + job,
+                    timeout: 30000,
+                    success: function (result) {
+                        $("#modalHolder").html(result);
+                        $("#modalEmails").modal({backdrop: 'static', keyboard: false});
+                    },
+                    error: function (e) {
+                        alert("Fail loading job emails " + e);
+                    }
+                });
+            });
 
             /**
              * Right click menu of jobs.                 
@@ -238,38 +290,197 @@
             $('.flow-job-clickable').on("contextmenu", function (e) {
                 e.preventDefault();
                 job = this.id;
+                var enabled = isEnabled(job);
+                var rebuild = isRebuild(job);
+                var jobStatus = document.getElementById("span-status-" + job);
 
                 // Build a Job.
                 var build = function () {
                     var url = /*[[@{/job/build/silently/}]]*/ "/job/build/silently/";
                     buildJob(job, url);
-                }
+                };
 
-                // Build Mesh confirm dialog.
                 var mesh = function () {
                     $("#mesh").modal({backdrop: 'static', keyboard: false});
-                }
+                };
+
+                var abort = function () {
+                    var url = /*[[@{/job/build/abort/}]]*/ "/job/build/abort/";
+                    abortJob(job, url);
+                };
 
                 var flow = function () {
                     var flowUrl = /*[[@{/flow/job/}]]*/ "/flow/job/";
                     window.open(flowUrl + job, '_blank');
-                }
+                };
 
                 var propagation = function () {
                     var propagationUrl = /*[[@{/propagation/job/}]]*/ "/propagation/job/";
                     window.open(propagationUrl + job, '_blank');
+                };
+
+                // Build history modal.
+                var buildHistory = function () {
+                    var url = /*[[@{/build/history/}]]*/ "/build/history/";
+
+                    $.ajax({
+                        type: "GET",
+                        url: url + job,
+                        timeout: 30000,
+                        success: function (result) {
+                            $("#modalHolder").html(result);
+                            $("#modalHistory").modal({backdrop: 'static', keyboard: true});
+                        },
+                        error: function (e) {
+                            alert("Fail loading job build history " + e);
+                        }
+                    });
+                };
+
+                // Enable or disable a job.
+                var enable = function () {
+                    var url = /*[[@{/job/enable/}]]*/ "/job/enable/";
+
+                    toastr.options = {
+                        "closeButton": true,
+                        "progressBar": true,
+                        "positionClass": "toast-top-right",
+                        "timeOut": timeout,
+                        "showEasing": "swing",
+                        "hideEasing": "linear",
+                        "showMethod": "fadeIn",
+                        "hideMethod": "fadeOut"
+                    }
+
+                    $.ajax({
+                        type: "GET",
+                        url: url + job + "/" + enabled,
+                        async: false,
+                        timeout: 30000,
+                        success: function (result) {
+                            toastr.success('Job successfully updated');
+
+                            setTimeout(function () {
+                                window.location.reload(1);
+                            }, timeout);
+                        },
+                        error: function (e) {
+                            toastr.error('Fail on job update ' + e);
+                        }
+                    });
+                };
+
+                // Set the job as reuildable or non rebuildable.
+                var rebuildable = function () {
+                    var url = /*[[@{/job/rebuildable/}]]*/ "/job/rebuildable/";
+
+                    toastr.options = {
+                        "closeButton": true,
+                        "progressBar": true,
+                        "positionClass": "toast-top-right",
+                        "timeOut": timeout,
+                        "showEasing": "swing",
+                        "hideEasing": "linear",
+                        "showMethod": "fadeIn",
+                        "hideMethod": "fadeOut"
+                    }
+
+                    $.ajax({
+                        type: "GET",
+                        url: url + job + "/" + rebuild,
+                        async: false,
+                        timeout: 30000,
+                        success: function (result) {
+                            toastr.success('Job successfully updated');
+
+                            setTimeout(function () {
+                                window.location.reload(1);
+                            }, timeout);
+                        },
+                        error: function (e) {
+                            toastr.error('Fail on job update ' + e);
+                        }
+                    });
+                };
+
+                /**
+                 * Job chain update modal.
+                 * 
+                 * @param {type} server Server
+                 * @param {type} flow identify flow or propagation.
+                 * @returns {undefined}
+                 */
+                var updateJobChain = function (server, reverse) {
+                    var url = /*[[@{/job/modal/update/chain/}]]*/ "/job/modal/update/chain/";
+
+                    $.ajax({
+                        type: "GET",
+                        url: url + job + "/" + server + "/" + reverse,
+                        timeout: 30000,
+                        success: function (result) {
+                            $("#modalHolder").html(result);
+                            $("#modalUpdateJobChain").modal({backdrop: 'static', keyboard: false});
+                            $('.selectpicker').selectpicker();
+                        },
+                        error: function (e) {
+                            alert("Error loading jobs from Jenkins " + e);
+                        }
+                    });
+                };
+
+                var servers = /*[[${servers}]]*/ '';
+                var submenuParents = [];
+                var submenuChildren = [];
+
+                // Build submenu with servers.
+                for (var server in servers) {
+
+                    // Submenu for add parents.
+                    submenuParents.push({
+                        icon: 'glyphicon glyphicon-tasks',
+                        label: servers[server].name,
+                        id: servers[server].id,
+                        action: function (option) {
+                            updateJobChain(option.id, false);
+                        }
+                    });
+
+                    // Submenu for add children.
+                    submenuChildren.push({
+                        icon: 'glyphicon glyphicon-tasks',
+                        label: servers[server].name,
+                        id: servers[server].id,
+                        action: function (option) {
+                            updateJobChain(option.id, true);
+                        }
+                    });
                 }
 
                 // Available actions.
                 var items = [
-                    {title: 'Flow', icon: 'glyphicon glyphicon-random', fn: flow},
-                    {title: 'Propagation', icon: 'glyphicon glyphicon-transfer', fn: propagation},
+                    {icon: 'glyphicon glyphicon-random', label: 'Flow', action: flow},
+                    {icon: 'glyphicon glyphicon-transfer', label: 'Propagation', action: propagation},
                     {},
-                    {title: 'Build', icon: 'glyphicon glyphicon-play', fn: build, disabled: !isAuthenticated},
-                    {title: 'Build Mesh', icon: 'glyphicon glyphicon-fast-backward', fn: mesh, disabled: !isAuthenticated},
-                ]
+                    {icon: 'glyphicon glyphicon-time', label: 'Build history', action: buildHistory},
+                    {},
+                    {
+                        icon: 'glyphicon glyphicon-menu-hamburger',
+                        label: 'Actions',
+                        disabled: !isAuthenticated,
+                        submenu: [
+                            {icon: 'glyphicon glyphicon-stop', label: 'Abort', action: abort, disabled: jobStatus.textContent !== "RUNNING"},
+                            {icon: 'glyphicon glyphicon-play', label: 'Build', action: build, },
+                            {icon: 'glyphicon glyphicon-fast-backward', label: 'Build Mesh', action: mesh},
+                            {icon: enabled ? 'glyphicon glyphicon-eye-close' : 'glyphicon glyphicon-eye-open', label: enabled ? 'Disable' : 'Enable', action: enable},
+                            {icon: rebuild ? 'glyphicon glyphicon-ban-circle' : 'glyphicon glyphicon-repeat', label: rebuild ? 'Not Rebuildable' : 'Rebuildable', action: rebuildable},
+                            {},
+                            {icon: 'glyphicon glyphicon-plus', label: 'Parent', submenu: submenuParents},
+                            {icon: 'glyphicon glyphicon-plus', label: 'Children', submenu: submenuChildren}
+                        ]
+                    }
+                ];
 
-                basicContext.show(items, e)
+                superCm.createMenu(items, e);
             });
 
             /**
@@ -295,7 +506,7 @@
 
                     $.ajax({
                         type: "GET",
-                        url: url + "/" + id,
+                        url: url + id,
                         timeout: 30000,
                         success: function (result) {
                             if (result) {
@@ -317,6 +528,49 @@
             }
 
             /**
+             * Abort a running job.
+             * 
+             * @param {type} id job id.
+             * @param {type} url hanger url;
+             * @returns {undefined}
+             */
+            function abortJob(id, url) {
+                if (url) {
+                    toastr.options = {
+                        "closeButton": true,
+                        "progressBar": true,
+                        "positionClass": "toast-top-right",
+                        "timeOut": timeout,
+                        "showEasing": "swing",
+                        "hideEasing": "linear",
+                        "showMethod": "fadeIn",
+                        "hideMethod": "fadeOut"
+                    };
+
+                    $.ajax({
+                        type: "GET",
+                        url: url + id,
+                        timeout: 30000,
+                        success: function (result) {
+                            if (result) {
+                                toastr.success('Job aborted successfully.');
+
+                                setTimeout(function () {
+                                    window.location.reload(1);
+                                }, timeout);
+
+                            } else {
+                                toastr.error('An error occurred while Aborting.');
+                            }
+                        },
+                        error: function (e) {
+                            toastr.error('Error on Abort request.');
+                        }
+                    });
+                }
+            }
+
+            /**
              * Build mesh job chain.
              */
             $("#build_mesh").click(function () {
@@ -326,6 +580,58 @@
                 var url = /*[[@{/job/rebuild/}]]*/ "/job/rebuild/";
                 buildJob(job, url);
             });
+
+            /**
+             * Identify if job is enabled.
+             * 
+             * @param {type} job Job id
+             * @returns boolean
+             */
+            function isEnabled(job) {
+                var isEnabledURL = /*[[@{/job/is/enabled/}]]*/ "/job/is/enabled/";
+                var isEnabled = true;
+
+                $.ajax({
+                    type: "GET",
+                    async: false,
+                    url: isEnabledURL + job,
+                    timeout: 30000,
+                    success: function (result) {
+                        isEnabled = result;
+                    },
+                    error: function (e) {
+                        isEnabled = true;
+                    }
+                });
+
+                return isEnabled;
+            }
+
+            /**
+             * Identify if job is rebuildable.
+             * 
+             * @param {type} job Job id
+             * @returns boolean
+             */
+            function isRebuild(job) {
+                var isRebuildURL = /*[[@{/job/is/rebuild/}]]*/ "/job/is/rebuild/";
+                var isRebuild = true;
+
+                $.ajax({
+                    type: "GET",
+                    async: false,
+                    url: isRebuildURL + job,
+                    timeout: 30000,
+                    success: function (result) {
+                        isRebuild = result;
+                    },
+                    error: function (e) {
+                        isRebuild = true;
+                    }
+                });
+
+                return isRebuild;
+            }
 
             /*]]>*/
         </script>

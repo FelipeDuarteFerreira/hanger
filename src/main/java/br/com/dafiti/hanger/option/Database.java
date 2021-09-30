@@ -28,8 +28,12 @@ package br.com.dafiti.hanger.option;
  * @author Valdiney V GOMES
  */
 public enum Database {
-    MYSQL,
+    ATHENA,
+    GENERIC,
+    HANA,
+    JTDS,
     MSSQL,
+    MYSQL,
     POSTGRES,
-    ATHENA;
+    REDSHIFT;
 }

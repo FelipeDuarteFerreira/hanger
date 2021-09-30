@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <form class="form-horizontal" th:action="@{/log/list/filter}" method="POST">
+                <div class="space-top">
+                    <div class="form-group">
+                        <div class="col-sm-9">
+                            <input type="text" name="dateRange" id="dateRange" class="form-control date-range" readonly="readonly" />
+                            <input type="hidden" name="dateFrom" id="dateFrom" th:value="${dateFrom}" />
+                            <input type="hidden" name="dateTo" id="dateTo" th:value="${dateTo}" />
+                        </div>
+                        <div class="col-md-3 p-1">
+                            <select class="selectpicker form-control" 
+                                    name="type"
+                                    data-live-search="true"  
+                                    multiple="true" 
+                                    th:checked="${type}">
+
+                                <option th:each="type : ${types}" 
+                                        th:value="${type}" 
+                                        th:text="${type}">
+                                </option>
+                            </select>
+                        </div>                        
+                    </div>
+                    <div class="form-group">
+                        <div class="col-sm-12">
+                            <button type="submit" 
+                                    class="btn btn-generic space-left space-right" 
+                                    id="filter">
+                                <span class="glyphicon glyphicon-filter" aria-hidden="true"></span> Filter
+                            </button>   
+                        </div>
+                    </div>
+                </div>             
+            </form>
+
+            <hr/>
+
+            <div>
+                <table id="table_paginated" class="table table-hover">
+                    <thead>
+                        <tr>    
+                            <th style="width:2.5%">#</th>
+                            <th style="width:10%">Date</th>
+                            <th style="width:10">Type</th>
+                            <th style="width:10%">User</th>   
+                            <th style="width:67.5%">Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="event : ${events}">  
+                            <td th:text="${event.id}">ID</td> 
+                            <td th:text="${#dates.format(event.date, 'yyyy-MM-dd HH:mm:ss')}">Date</td>  
+                            <td>
+                                <div th:if="${
+                                     #strings.contains(event.type, 'DELETE') 
+                                     or 
+                                     #strings.contains(event.type, 'FAILURE')}">
+                                    <span class="label label-danger" th:text="${event.type}"></span>
+                                </div>
+
+                                <div th:if="${#strings.contains(event.type, 'UPDATE')}">
+                                    <span class="label label-warning" th:text="${event.type}"></span>
+                                </div>
+
+                                <div th:if="${
+                                     #strings.contains(event.type, 'ADD') 
+                                     or 
+                                     #strings.contains(event.type, 'SUCCESS')}">
+                                    <span class="label label-default" th:text="${event.type}"></span>
+                                </div>
+
+                                <div th:if="${
+                                     not #strings.contains(event.type, 'ADD') 
+                                     and 
+                                     not #strings.contains(event.type, 'DELETE') 
+                                     and 
+                                     not #strings.contains(event.type, 'UPDATE')
+                                     and 
+                                     not #strings.contains(event.type, 'FAILURE')
+                                     and 
+                                     not #strings.contains(event.type, 'SUCCESS')}">
+                                    <span class="label label-default" th:text="${event.type}"></span>
+                                </div>
+                            </td>  
+                            <td th:text="${event.username}">User</td> 
+                            <td>
+                                <table>
+                                    <tr th:each="data : ${event.data}">
+                                        <td> 
+                                            <div th:if="${data.key == 'sql' or data.key == 'javascript'}">
+                                                <pre class="no-border">
+                                                    <code th:class="'language-' + ${data.key}" th:text="${data.value}"></code>
+                                                </pre>
+                                            </div>
+                                            <div class="space-top" th:if="${data.key == 'error'}">
+                                                <span class="label label-danger" th:text="${data.value}"></span>
+                                            </div>
+                                            <div th:unless="${data.key == 'sql' or data.key == 'javascript' or data.key == 'error'}">
+                                                <span class="bold" th:text="${data.value}"></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td> 
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <script>
+            Prism.plugins.NormalizeWhitespace.setDefaults({
+                'remove-trailing': true,
+                'remove-indent': true,
+                'left-trim': true,
+                'right-trim': true,
+            });
+
+            $(function () {
+                $('#dateRange').daterangepicker({
+                    timePicker: true,
+                    startDate: $('#dateFrom').val(),
+                    endDate: $('#dateTo').val(),
+                    maxDate: moment().startOf('day').hour(23).minute(59),
+                    timePicker24Hour: true,
+                    opens: 'right',
+                    locale: {
+                        format: 'YYYY-MM-DD HH:mm',
+                        separator: " to "
+                    },
+                });
+
+                // Save date in a hidden
+                $('#dateRange').on('apply.daterangepicker', function (ev, picker) {
+                    $('#dateFrom').val(picker.startDate.format('YYYY-MM-DD HH:mm:ss'));
+                    $('#dateTo').val(picker.endDate.format('YYYY-MM-DD HH:mm:ss'));
+                });
+            });
+        </script>
+    </body>
+</html>

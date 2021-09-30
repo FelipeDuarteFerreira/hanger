@@ -76,13 +76,14 @@ public class RetryService {
      * @return Retry count
      */
     public int get(Job job) {
-        int value = 1;
+        int value = 0;
 
         if (retry.containsKey(job)) {
             value = retry.get(job);
         } else {
-            retry.put(job, 1);
+            retry.put(job, value);
         }
+        
         return value;
     }
 

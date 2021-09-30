@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <div>           
+                <form class="form-horizontal" th:object="${template}" th:action="@{/template/save}" method="post">
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <input type="hidden" class="form-control" th:field="*{id}"/>
+                        </div>
+                    </div>
+
+                    <div th:if="${ errorMessage != null }" class="form-group">
+                        <!--Validation-->
+                        <div class="col-sm-10">
+                            <div class="alert alert-danger" role="alert">
+                                <span th:text="${errorMessage}"></span>
+                            </div>  
+                        </div> 
+                    </div> 
+
+                    <label>Name</label> 
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <input type="text" class="form-control" maxlength="50" th:field="*{name}" placeholder="Template name"/>
+                            <span th:if="${#fields.hasErrors('name')}" class="help-block" th:errors="*{name}"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Description</label> 
+                            <textarea class="form-control" rows="3" th:field="*{description}" placeholder="Description" maxlength="65000"></textarea>
+                        </div>
+                        <span th:if="${#fields.hasErrors('description')}" class="help-block" th:errors="*{description}"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Template</label> 
+                            <textarea class="form-control shell-script" rows="2" th:field="*{model}" placeholder="Template" maxlength="65000"></textarea>
+                            <div class="space-top alert alert-light">
+                                <pre class="language-free no-border">    
+Sintaxe:
+    <b>${{variable}}</b> where a variable could include the type and a default value attributes, as: 
+    <b>${{variable::{"type":"number", "default":10}}}</b> where <b>::</b> indicate that type and default value attributes of a variable are being suplied by <b>{"type":"number", "default":10}</b>
+
+Attributes: 
+    <b>type</b>: number, text and date are acceptable types. 
+    <b>default</b>: Any value are acceptable.             
+                                </pre>
+                            </div>
+                        </div>
+                        <span th:if="${#fields.hasErrors('model')}" class="help-block" th:errors="*{model}"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <button type="submit" class="btn btn-generic btn-sm">
+                                <span class="glyphicon glyphicon-save" aria-hidden="true"></span> Save
+                            </button>
+                        </div>
+                    </div>
+
+                    <div th:if="*{ updatedAt != null }">
+                        <hr/>
+
+                        <!--Tracker-->
+                        <div class="form-group">                        
+                            <div class="col-sm-10">
+                                <label class="pull-right label-edit-information" th:inline="text">Updated by [[*{modifiedBy}]] at [[*{#dates.format(updatedAt, 'yyyy-MM-dd HH:mm:ss')}]]</label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script th:inline="javascript">
+            $(document).ready(function () {
+                /**
+                 * CodeMirror plugin in shell script fields
+                 */
+                var shellScript = document.getElementsByClassName('shell-script');
+                for (var i = 0; i < shellScript.length; i++) {
+                    var codeMirror = CodeMirror.fromTextArea(shellScript[i], {
+                        mode: 'shell',
+                        lineNumbers: true,
+                        matchBrackets: true
+                    });
+
+                    codeMirror.setSize("100%", "300px");
+                }
+            });
+        </script>
+    </body>
+</html>

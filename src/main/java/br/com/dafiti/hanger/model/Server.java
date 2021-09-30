@@ -30,16 +30,17 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.Pattern;
 import javax.validation.constraints.Size;
-import org.hibernate.validator.constraints.NotEmpty;
+import org.json.JSONObject;
 
 /**
  *
  * @author Valdiney V GOMES
  */
 @Entity
-public class Server extends Tracker implements Serializable {
+public class Server extends Tracker<Server> implements Serializable {
 
     private Long id;
     private String name;
@@ -48,7 +49,7 @@ public class Server extends Tracker implements Serializable {
     private String token;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long getId() {
         return id;
     }
@@ -128,5 +129,15 @@ public class Server extends Tracker implements Serializable {
         }
 
         return Objects.equals(this.id, other.id);
+    }
+
+    @Override
+    public String toString() {
+        JSONObject object = new JSONObject();
+        object.put("id", id);
+        object.put("name", name);
+        object.put("url", url);
+        object.put("username", username);
+        return object.toString(2);
     }
 }

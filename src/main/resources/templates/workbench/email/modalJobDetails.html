@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <div class="modal fade" id="modalJobDetails" tabindex="-1" role="dialog" aria-labelledby="modalJobDetailsLabel" th:fragment="detail">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                            <h4 class="modal-title" id="modalJobDetailsLabel">Related Jobs</h4>
+                        </div>
+                        <div class="modal-body"> 
+                            <!-- Job details list-->
+                            <table id="table" class="table table-hover">
+                                <thead> 
+                                    <tr>
+                                        <th style="width:5%" class="img-sort">Status</th>
+                                        <th style="width:15%">Server</th>
+                                        <th style="width:55%">Job</th>
+                                        <th style="width:1.5%" class="no-sort">
+                                            <span class="glyphicon glyphicon-link" title="LINK"></span>
+                                        </th>
+                                        <th style="width:25%">Update</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="jobDetail : ${jobDetails}">
+                                        <td>
+                                            <th:block th:include="monitor/fragmentJobStatus :: jobStatus(${jobDetail})"></th:block>
+                                        </td>
+                                        <td th:text="${jobDetail.job.server.name}">
+                                            Server
+                                        </td>
+                                        <td>
+                                            <a class="link" th:href="@{'/flow/job/'  + ${jobDetail.job.id}}" th:text="${jobDetail.job.displayName}"></a>
+                                        </td>
+                                        <td>
+                                            <a class="link" th:href="@{ ${jobDetail.job.server.url} + 'job/' + ${jobDetail.job.name}}" target="_blank"> +</a>
+                                        </td>
+                                        <td th:text="${jobDetail.buildTime}">
+                                            Build time
+                                        </td>                                                
+                                    </tr>
+                                </tbody>  
+                            </table>
+                        </div>
+                        <div class="modal-footer">                                
+                            <button type="button" class="btn btn-generic btn-sm" data-dismiss="modal">
+                                <span aria-hidden="true"></span> Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

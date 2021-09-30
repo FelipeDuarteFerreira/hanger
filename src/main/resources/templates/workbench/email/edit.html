@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <div>
+                <form class="form-horizontal" th:object="${email}" th:action="@{/email/save}" method="post">
+                    <div class="form-group">
+                        <div class="col-sm-10">                            
+                            <!--ID-->
+                            <input type="hidden" th:field="*{id}"/>
+                            <!--User-->
+                            <input type="hidden" th:field="*{user}"/>
+                        </div>
+                    </div>
+
+                    <div th:if="${ errorMessage != null }" class="form-group">
+                        <!--Validation-->
+                        <div class="col-sm-10">
+                            <div class="alert alert-danger" role="alert">
+                                <span th:text="${errorMessage}"></span>
+                            </div>  
+                        </div> 
+                    </div>
+
+                    <label>Recipient</label>
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <select 
+                                id="recipient"
+                                class="selectpicker form-control col-xs-6" 
+                                data-live-search="true" 
+                                multiple="true"
+                                th:field="*{recipient}" 
+                                required="true" 
+                                data-selected-text-format="count > 5">
+
+                                <option th:each="user: ${users}" 
+                                        th:value="${user.email}" 
+                                        th:text="${user.getFullName()}">
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <label>External Recipient</label> 
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <input 
+                                type="text" 
+                                id="externalRecipient"
+                                class="form-control" 
+                                maxlength="255"                                            
+                                placeholder="E-mail list separated by semicolon or comma"
+                                th:field="*{externalRecipient}" />
+                        </div>
+                    </div>  
+
+                    <!--Subject-->   
+                    <label>Subject</label> 
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <input type="text" 
+                                   class="form-control" 
+                                   maxlength="50" 
+                                   th:field="*{subject}" 
+                                   required="true" 
+                                   placeholder="Subject"/>
+                            <span
+                                th:if="${#fields.hasErrors('subject')}" 
+                                class="help-block alertErr"
+                                th:errors="*{subject}"></span>
+                        </div>
+                    </div>
+
+                    <label>Body</label> 
+                    <div class="form-group">
+                        <div class="col-sm-10">                                        
+                            <textarea 
+                                id="query" 
+                                class="form-control" 
+                                th:field="*{content}"
+                                rows="5" 
+                                maxlength="10000"></textarea>
+                        </div>
+                    </div>
+
+                    <label>Connection</label>
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <select 
+                                id="connection"
+                                class="selectpicker form-control col-xs-6" 
+                                data-live-search="true" 
+                                th:field="*{connection.id}">
+
+                                <option th:each="connection: ${connections}" 
+                                        th:value="${connection.id}" 
+                                        th:text="${connection.name}">
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <label>Query</label> 
+                    <div class="form-group">
+                        <div class="col-sm-10">                                        
+                            <textarea 
+                                id="query" 
+                                class="form-control" 
+                                th:field="*{query}"
+                                rows="5" 
+                                required="true" 
+                                maxlength="10000"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div th:if="*{not #lists.isEmpty(job)}">
+                        <fieldset>
+                            <legend>
+                                Jobs
+                            </legend>
+                            <span>Related jobs</span>
+                        </fieldset>
+                        <br/>
+
+                        <table class="table">
+                            <tr>
+                                <th style="width:3%">#</th>
+                                <th style="width:50%">Job</th>
+                                <th style="width:47%">Server</th>
+                            </tr>
+                            <tr th:each="j : *{job}">
+                                <td><span th:text="${j.id}"></span></td>
+                                <td>
+                                    <a class="link" 
+                                       th:text="${j.name}" 
+                                       th:href="@{'/job/view/' + ${j.id}}" 
+                                       target="_blank"></a>  
+                                </td>
+                                <td><span th:text="${j.server.name}"></span></td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <!--Buttons--> 
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <button type="submit" class="btn btn-generic btn-sm">
+                                <span class="glyphicon glyphicon-save" aria-hidden="true"></span> Save
+                            </button>
+
+                            <button id="modal_wait" type="button" class="btn btn-generic btn-sm pull-right btn-space" style="display:none;">
+                                <img th:src="@{'/images/ajax-loader.gif'}"></img>
+                            </button>
+                        </div>
+                    </div>
+
+                    <hr/>
+
+                    <div class="form-group">   
+                        <div class="col-sm-5">
+                            <a th:href="@{'/email/stored/'}" class="btn btn-link btn-sm">
+                                <span class="glyphicon glyphicon-backward" aria-hidden="true"></span> Go back
+                            </a>
+                        </div>
+
+                        <!--Tracker-->
+                        <div th:if="*{ updatedAt != null }">
+                            <div class="col-sm-5">
+                                <label class="pull-right label-edit-information" th:inline="text">Updated by [[*{modifiedBy}]] at [[*{#dates.format(updatedAt, 'yyyy-MM-dd HH:mm:ss')}]]</label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </body>
+</html> 

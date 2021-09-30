@@ -6,10 +6,8 @@
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
         <div class="container-fluid main-content">
-            <h3 class="page-title">Server</h3>
             <div>           
                 <form class="form-horizontal" th:object="${server}" th:action="@{/server/save}" method="post">
-
                     <div class="form-group">
                         <div class="col-sm-10">
                             <input type="hidden" class="form-control" th:field="*{id}"/>

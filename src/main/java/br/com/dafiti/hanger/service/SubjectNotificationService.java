@@ -109,7 +109,7 @@ public class SubjectNotificationService {
 
                     JSONObject building = new JSONObject();
                     building.put("title", "Building");
-                    building.put("value", detail.getBuildingPercent() + "%" + " (" + (detail.getBuilding() + detail.getRunning()) + " jobs)");
+                    building.put("value", detail.getBuildingPercent() + "%" + " (" + (detail.getBuilding()) + " jobs)");
                     building.put("short", true);
                     metrics.put(building);
 

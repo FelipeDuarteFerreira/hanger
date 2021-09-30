@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" >
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <div class="form-group space-top">
+                <fieldset>
+                    <legend>Log</legend>
+                    <div class="col-sm-12">
+                        <pre class="line-numbers no-border">
+                            <code class="language-log" th:text="${log}"></code>
+                        </pre>
+                    </div>
+                </fieldset>
+            </div>
+
+            <hr/>
+
+            <div class="form-group">  
+                <a href="javascript:history.back()" class="btn btn-link btn-sm">
+                    <span class="glyphicon glyphicon-backward" aria-hidden="true"></span> Go back
+                </a>
+            </div>
+        </div>
+
+        <script>
+            Prism.plugins.NormalizeWhitespace.setDefaults({
+                'remove-trailing': true,
+                'remove-indent': true,
+                'left-trim': true,
+                'right-trim': true,
+            });
+        </script>
+    </body>
+</html>

@@ -699,7 +699,7 @@
                         x: self.nodeDB.getMinMaxCoord('X', null, null),
                         y: self.nodeDB.getMinMaxCoord('Y', null, null)
                     },
-            treeWidth = treeSize.x.max - treeSize.x.min,
+                    treeWidth = treeSize.x.max - treeSize.x.min,
                     treeHeight = treeSize.y.max - treeSize.y.min,
                     treeCenter = {
                         x: treeSize.x.max - treeWidth / 2,
@@ -713,7 +713,7 @@
                         x: self.drawArea.clientWidth / 2,
                         y: self.drawArea.clientHeight / 2
                     },
-            deltaX = containerCenter.x - treeCenter.x,
+                    deltaX = containerCenter.x - treeCenter.x,
                     deltaY = containerCenter.y - treeCenter.y,
                     // all nodes must have positive X or Y coordinates, handle this with offsets
                     negOffsetX = ((treeSize.x.min + deltaX) <= 0) ? Math.abs(treeSize.x.min) : 0,
@@ -1258,6 +1258,11 @@
 
             this.children = [];
 
+            //https://github.com/fperucic/treant-js/issues/73
+            //ATENCAO - As duas linhas abaixo foram incluídas para corrigir o erro apontado no issue acima. 
+            this.X = 0;
+            this.Y = 0;
+
             return this;
         },
         /**
@@ -1637,7 +1642,7 @@
                 top: this.Y,
                 opacity: 1
             },
-            config = this.getTreeConfig();
+                    config = this.getTreeConfig();
 
             // if the node was hidden, update opacity and position
             if ($) {
@@ -1878,7 +1883,7 @@
             },
             stackIndent: 15
         },
-        node: { // each node inherits this, it can all be overridden in node config
+        node: {// each node inherits this, it can all be overridden in node config
 
             // HTMLclass: 'node',
             // drawLineThrough: false,

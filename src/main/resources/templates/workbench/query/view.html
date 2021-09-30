@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <div>
+                <form class="form-horizontal" th:object="${workbenchQuery}">
+                    <div class="form-group">
+                        <!-- Id -->
+                        <input type="hidden" class="form-control" th:field="*{id}" />
+                        <!-- User -->
+                        <input type="hidden" class="form-control" th:field="*{user}" />
+                    </div>
+
+                    <!-- Name -->
+                    <label>Name</label>
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                th:field="*{name}" 
+                                maxlength="50" 
+                                readonly="true" />
+                        </div>
+                    </div>
+
+                    <!-- Connection -->
+                    <label>Connection</label>
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                th:field="*{connection.name}" 
+                                maxlength="50" 
+                                readonly="true" />
+                        </div>
+                    </div>
+
+                    <!-- Query -->
+                    <label>
+                        Query
+                        <a th:href="@{'/workbench/studio/' + *{id}}" title="Open in workbench" target="_blank">
+                            <span class="glyphicon glyphicon-play" aria-hidden="true"></span>
+                        </a>
+                    </label> 
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <pre class="line-numbers">
+                                <code class="language-sql" th:text="*{query}"></code>
+                            </pre>
+                        </div>                        
+                    </div>
+
+                    <!-- Shared -->
+                    <fieldset>
+                        <legend>Options</legend>
+
+                        <div class="form-group">  
+                            <div class="col-sm-10">
+                                <div class="btn-group">
+                                    <label>
+                                        <input 
+                                            id="shared" 
+                                            name="shared" 
+                                            type="checkbox" 
+                                            th:field="*{shared}" 
+                                            th:checked="*{shared}" 
+                                            disabled="true"/>
+                                        Shared
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <div th:if="*{#authorization.expression('hasRole(''HERO'')') or user.username == #httpServletRequest.remoteUser}">
+                        <hr/>
+                        <div class="form-group">
+                            <div class="col-sm-10">
+                                <a th:href="@{'/query/edit/' + *{id}}" class="btn btn-generic btn-sm">
+                                    <span class="glyphicon glyphicon-edit" aria-hidden="true"></span> Edit
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr/>
+                    
+                    <div class="form-group">   
+                        <div class="col-sm-5">
+                            <a th:href="@{'/query/add/'}" class="btn btn-link btn-sm">
+                                <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add query
+                            </a>
+                            
+                            <a th:href="@{'/query/stored/'}" class="btn btn-link btn-sm">
+                                <span class="glyphicon glyphicon-backward" aria-hidden="true"></span> Go back
+                            </a>                            
+
+                            <a th:href="@{'/workbench/studio/'}" class="btn btn-link btn-sm">
+                                <span class="glyphicon glyphicon-play" aria-hidden="true"></span> Open workbench
+                            </a>
+                        </div>
+
+                        <!--Tracker-->
+                        <div th:if="*{ updatedAt != null }">
+                            <div class="col-sm-5">
+                                <label class="pull-right label-edit-information" th:inline="text">
+                                    Updated by [[*{modifiedBy}]] at [[*{#dates.format(updatedAt, 'yyyy-MM-dd HH:mm:ss')}]]
+                                </label>
+                            </div>
+                        </div>
+                    </div>                   
+                </form>
+            </div>
+        </div>
+    </body>
+</html>

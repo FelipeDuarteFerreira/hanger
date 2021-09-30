@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity">
     <head lang="en" th:replace="base/header :: head">
         <title>Hanger</title>
     </head>
@@ -18,10 +18,18 @@
                             <div class="modal-body">
                                 <div class="form-group">
                                     <div class="col-sm-12">
-                                        <select class="selectpicker form-control col-xs-6" data-live-search="true" name="jobList" id="jobList" multiple="true" data-selected-text-format="count > 3">
+                                        <select id="jobList"
+                                                name="jobList" 
+                                                class="selectpicker form-control col-xs-6" 
+                                                data-live-search="true" 
+                                                data-actions-box="true"
+                                                multiple="true" 
+                                                data-selected-text-format="count > 3">
+
                                             <option th:each="job : ${jobs}" 
                                                     th:value="${job.id}"
-                                                    th:text="${job.name}">
+                                                    th:text="${job.name}"
+                                                    th:disabled="${!job.enabled}">
                                             </option>
                                         </select>
                                     </div>

@@ -27,7 +27,12 @@ import br.com.dafiti.hanger.model.Configuration;
 import br.com.dafiti.hanger.model.ConfigurationGroup;
 import br.com.dafiti.hanger.repository.ConfigurationRepository;
 import br.com.dafiti.hanger.security.PasswordCryptor;
+import org.joda.time.LocalDateTime;
+import org.joda.time.format.DateTimeFormat;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 /**
@@ -50,8 +55,6 @@ public class ConfigurationService {
         this.configurationRepository = configurationRepository;
         this.configurationGroupService = configurationGroupService;
         this.passwordCryptor = passwordCryptor;
-
-        this.init();
     }
 
     public Iterable<Configuration> list() {
@@ -59,47 +62,49 @@ public class ConfigurationService {
     }
 
     public Configuration load(Long id) {
-        return configurationRepository.findOne(id);
+        return configurationRepository.findById(id).get();
     }
 
     /**
      * Find a parameter value based on the parameter name.
-     * 
+     *
      * @param parameter name of the parameter.
      * @return Configuration object.
      */
+    @Cacheable(value = "parameters", key = "#parameter")
     public Configuration findByParameter(String parameter) {
         Configuration configuration = configurationRepository.findByParameter(parameter);
 
         if (configuration != null) {
-        	if (configuration.getType().toUpperCase().equals("PASSWORD")) {
+            if (configuration.getType().toUpperCase().equals("PASSWORD")) {
                 configuration.setValue(passwordCryptor.decrypt(configuration.getValue()));
             }
         }
-        
 
         return configuration;
     }
-    
+
     /**
      * Value of a parameter.
-     * 
-     * @param parameter name of the parameter. 
+     *
+     * @param parameter name of the parameter.
      * @return String with the parameter value.
      */
     public String getValue(String parameter) {
-    	String value = "";
-    	Configuration configuration = this.findByParameter(parameter);
+        String value = "";
+        Configuration configuration = this.findByParameter(parameter);
 
-    	if (configuration != null) {
-    		if (configuration.getValue() != null) {
-    			value = configuration.getValue();	
-    		}
-    	}
+        if (configuration != null) {
+            if (configuration.getValue() != null) {
+                value = configuration.getValue();
+            }
+        }
 
-    	return value;
+        return value;
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "parameters", allEntries = true)})
     public void save(Configuration configuration) {
         save(configuration, false);
     }
@@ -123,10 +128,10 @@ public class ConfigurationService {
     /**
      * Insert default values into Configuration table.
      */
-    private void init() {
+    public void createConfigurationIfNotExists() {
         //E-mail configuration.
         ConfigurationGroup emailGroup = new ConfigurationGroup("E-mail");
-        this.configurationGroupService.save(emailGroup, true);
+        emailGroup = this.configurationGroupService.save(emailGroup, true);
         this.save(new Configuration(
                 "Host",
                 "EMAIL_HOST",
@@ -153,7 +158,7 @@ public class ConfigurationService {
                 "hanger.manager@dafiti.com.br",
                 "text",
                 emailGroup,
-                10,
+                0,
                 255,
                 "[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,3}$"), true);
 
@@ -163,13 +168,13 @@ public class ConfigurationService {
                 "",
                 "password",
                 emailGroup,
-                05,
+                0,
                 50,
                 "*"), true);
 
         //Slack configuration.
         ConfigurationGroup slackGroup = new ConfigurationGroup("Slack");
-        this.configurationGroupService.save(slackGroup, true);
+        slackGroup = this.configurationGroupService.save(slackGroup, true);
         this.save(new Configuration(
                 "Default channel",
                 "SLACK_CHANNEL",
@@ -180,9 +185,29 @@ public class ConfigurationService {
                 255,
                 "*"), true);
 
+        this.save(new Configuration(
+                "Bot token",
+                "SLACK_BOT_TOKEN",
+                "",
+                "password",
+                slackGroup,
+                5,
+                255,
+                "*"), true);
+
+        this.save(new Configuration(
+                "Incoming WebHooks URL",
+                "SLACK_WEBHOOK_URL",
+                "",
+                "text",
+                slackGroup,
+                5,
+                255,
+                "*"), true);
+
         //Generic configuration.
         ConfigurationGroup others = new ConfigurationGroup("Others");
-        this.configurationGroupService.save(others, true);
+        others = this.configurationGroupService.save(others, true);
         this.save(new Configuration(
                 "Log retention (in days)",
                 "LOG_RETENTION_PERIOD",
@@ -192,5 +217,60 @@ public class ConfigurationService {
                 15,
                 365,
                 "*"), true);
+
+        //Maximun number of tables to display on workbench.
+        ConfigurationGroup workbench = new ConfigurationGroup("Workbench");
+        workbench = this.configurationGroupService.save(workbench, true);
+        this.save(new Configuration(
+                "Schema and table searcheble",
+                "WORKBENCH_MAX_ENTITY_NUMBER",
+                "5000",
+                "number",
+                workbench,
+                100,
+                50000,
+                "*"), true);
+
+        //E-mail domain filter.
+        this.save(new Configuration(
+                "E-mail filter (RegExp)",
+                "EMAIL_DOMAIN_FILTER",
+                "",
+                "text",
+                workbench,
+                0,
+                255,
+                "*"), true);
+
+        //Limit of rows per query.
+        this.save(new Configuration(
+                "Max rows per query",
+                "WORKBENCH_MAX_ROWS",
+                "100",
+                "number",
+                workbench,
+                100,
+                1000000,
+                "*"), true);
+    }
+
+    /**
+     * Get max rows allowed in a query.
+     *
+     * @return int
+     */
+    @Cacheable(value = "maxRows")
+    public int getMaxRows() {
+        return Integer.valueOf(this
+                .findByParameter("WORKBENCH_MAX_ROWS")
+                .getValue());
+    }
+
+    public String getDataBaseTime() {
+        return this.configurationRepository.now();
+    }
+
+    public String getServerTime() {
+        return new LocalDateTime().toString(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS"));
     }
 }

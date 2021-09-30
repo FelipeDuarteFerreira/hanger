@@ -2,7 +2,28 @@ $(document).ready(function () {
 
     $('.tbList').toggleClass("dispDef");
 
+    $('[data-toggle="tooltip"]').tooltip();
+
     $('#table').DataTable({
+        "paging": false,
+        "info": false,
+        "order": [],
+        "columnDefs": [{
+                "targets": 'no-sort',
+                "orderable": false
+            },
+            {
+                targets: 'img-sort',
+                "type": "alt-string"
+            },
+            {
+                targets: 'no-search',
+                "searchable": false
+            }
+        ]
+    });
+
+    $('[id^=table_search]').DataTable({
         "paging": false,
         "info": false,
         "order": [],
@@ -41,9 +62,29 @@ $(document).ready(function () {
         ]
     });
 
-
     $('[id^=table_clean]').DataTable({
         "paging": false,
+        "info": false,
+        "searching": false,
+        "order": [],
+        "columnDefs": [{
+                "targets": 'no-sort',
+                "orderable": false
+            },
+            {
+                targets: 'img-sort',
+                "type": "alt-string"
+            },
+            {
+                targets: 'no-search',
+                "searchable": false
+            }
+        ]
+    });
+
+    $('[id^=table_paginated_clean]').DataTable({
+        "pageLength": 10,
+        "bLengthChange": false,
         "info": false,
         "searching": false,
         "order": [],
@@ -99,23 +140,57 @@ $(document).ready(function () {
 
     $("#date-filter").datepicker({
         format: "yyyy-mm-dd",
-         todayHighlight: true
+        todayHighlight: true
     });
 
-    $('#date-range-filter').dateRangePicker({
-        separator: ' to ',
-        getValue: function ()
-        {
-            if ($('#date-from').val() && $('#date-to').val())
-                return $('#date-from').val() + ' to ' + $('#date-to').val();
-            else
-                return '';
-        },
-        setValue: function (s, s1, s2)
-        {
-            $('#date-from').val(s1);
-            $('#date-to').val(s2);
-        }
+    $('[id^=query_stored_]').DataTable({
+        "pageLength": 10,
+        "bLengthChange": false,
+        "info": false,
+        "order": [],
+        "columnDefs": [{
+                "targets": 'no-sort',
+                "orderable": false
+            },
+            {
+                targets: 'img-sort',
+                "type": "alt-string"
+            },
+            {
+                targets: 'no-search',
+                "searchable": false
+            }
+        ]
+    });
+
+    $('#table_workbench_email').DataTable({
+        "paging": false,
+        "bLengthChange": false,
+        "info": false,
+        "columnDefs": [{
+                "targets": 'no-sort',
+                "orderable": false
+            },
+            {
+                targets: 'img-sort',
+                "type": "alt-string"
+            },
+            {
+                targets: 'no-search',
+                "searchable": false
+            }
+        ]
+    });
+
+    // Default copy button
+    // Always use class .btn-copy for copy operation
+    var clipboard = new ClipboardJS('.btn-copy');
+
+    clipboard.on('success', function () {
+        toastr.info('Copied!');
+    });
+
+    clipboard.on('error', function () {
+        toastr.error("Not copied!");
     });
 });
-

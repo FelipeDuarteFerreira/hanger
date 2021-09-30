@@ -6,13 +6,29 @@
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
         <div class="container-fluid main-content">
-            <table>
-                <tr>
-                    <th>
-                        <h3 th:inline="text" class="page-title">[[${table}]]'s metadata</h3>
-                    </th>
-                </tr>            
-            </table>
+            <ol class="breadcrumb breadcrumb-connection">
+                <li th:inline="text">
+                    <a th:href="@{'/connection/list/'}">                    
+                        Connection
+                    </a>
+                </li>
+                <li th:inline="text">
+                    <a th:href="@{'/connection/' + ${connection.id} + '/catalog/schema'}">
+                        [[${connection.name}]]
+                    </a>
+                </li>
+                <li th:inline="text" th:if="${catalog != 'null' and catalog != ''}">
+                    <a th:href="@{'/connection/' + ${connection.id} + '/table'(catalog=${catalog},schema=${schema})}">
+                        [[${catalog}]]
+                    </a>
+                </li>
+                <li th:inline="text" th:if="${schema != 'null' and schema != ''}">
+                    <a th:href="@{'/connection/' + ${connection.id} + '/table'(catalog=${catalog},schema=${schema})}">
+                        [[${schema}]]
+                    </a>
+                </li>
+                <li th:inline="text">[[${table}]]</li>
+            </ol>
 
             <div th:if="${ errorMessage != null }" class="form-group">
                 <div class="alert alert-danger" role="alert">
@@ -26,45 +42,122 @@
                 </div>  
             </div>
 
-            <label class="space-top">Primary key</label>
+            <fieldset>
+                <legend class="space-top">                                        
+                    <a class="link" 
+                       data-toggle="collapse" 
+                       href="#collapsePrimary" 
+                       role="button" 
+                       aria-expanded="false" 
+                       aria-controls="collapsePrimary" 
+                       title="Click to expand or collapse">
+                        <span class="glyphicon glyphicon-triangle-bottom"></span>
+                        Primary key                                            
+                    </a>
+                </legend>
 
-            <table id="table_clean" class="table table-hover">
-                <thead>
-                    <tr>
-                        <th style="width:5%">Position</th>
-                        <th>Name</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="pk : ${pk}">
-                        <td th:text="${pk.position}">Position</td>
-                        <td th:text="${pk.name}">Name</td>
-                    </tr>
-                </tbody>
-            </table>
+                <div class="collapse" id="collapsePrimary">
+                    <table id="table_clean" class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width:5%">Position</th>
+                                <th>Name</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="pk : ${pk}">
+                                <td th:text="${pk.position}">Position</td>
+                                <td th:text="${pk.name}">Name</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </fieldset>
 
-            <label>Columns</label>
+            <fieldset>
+                <legend>
+                    <a class="link" 
+                       data-toggle="collapse" 
+                       href="#collapseIndex" 
+                       role="button" 
+                       aria-expanded="false" 
+                       aria-controls="collapseIndex" 
+                       title="Click to expand or collapse">
+                        <span class="glyphicon glyphicon-triangle-bottom"></span>
+                        Indexes
+                    </a>
+                </legend>
 
-            <table id="table" class="table table-hover">
-                <thead>
-                    <tr>
-                        <th style="width:5%">Position</th>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Size</th>
-                        <th>Decimal</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="column, stat : ${column}">
-                        <td th:text="${column.position}">Position</td>
-                        <td th:text="${column.name}">Name</td>
-                        <td th:text="${column.type}">Type</td>
-                        <td th:text="${column.size}">Size</td>
-                        <td th:text="${column.decimal}">Decimal</td>
-                    </tr>
-                </tbody>
-            </table>
+                <div class="collapse" id="collapseIndex">
+                    <table id="table_clean" class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width:5%">#</th>
+                                <th>Non Unique</th>
+                                <th>Qualifier</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Column name</th>
+                                <th>Asc or Desc</th>
+                                <th>Cardinality</th>                                                 
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="index : ${indexes}">
+                                <td th:text="${index.position}">position</td>
+                                <td th:text="${index.nonUnique}">nonUnique</td>
+                                <td th:text="${index.qualifier}">qualifier</td>
+                                <td th:text="${index.name}">name</td>
+                                <td th:text="${index.type}">type</td>                                                    
+                                <td th:text="${index.columnName}">columnName</td>
+                                <td th:text="${index.ascOrDesc}">ascOrDesc</td>
+                                <td th:text="${index.cardinality}">cardinality</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>                                        
+                    <a class="link" 
+                       data-toggle="collapse" 
+                       href="#collapseColumn" 
+                       role="button" 
+                       aria-expanded="false" 
+                       aria-controls="collapseColumn" 
+                       title="Click to expand or collapse">
+                        <span class="glyphicon glyphicon-triangle-bottom"></span>
+                        Columns
+                    </a>
+                </legend>
+
+                <div class="collapse in" id="collapseColumn">
+                    <table id="table" class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width:5%">Position</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Size</th>
+                                <th>Decimal</th>
+                                <th>Remark</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="column, stat : ${column}">
+                                <td th:text="${column.position}">Position</td>
+                                <td th:text="${column.name}">Name</td>
+                                <td th:text="${column.type}">Type</td>
+                                <td th:text="${column.size}">Size</td>
+                                <td th:text="${column.decimal}">Decimal</td>
+                                <td th:text="${column.remark}">Remark</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </fieldset>
         </div>
     </body>
 </html>

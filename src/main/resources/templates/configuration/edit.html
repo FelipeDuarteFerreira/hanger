@@ -5,17 +5,21 @@
     </head>
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
-        <div class="container-fluid main-content">
-            <h3 class="page-title">Configuration</h3>
+        <div class="container-fluid main-content">            
             <div>
                 <form id="configuration" class="form-horizontal space-top" th:object="${configurationGroup}" th:action="@{/configuration/save}" method="post">
-                    <div class="form-group">
-                        <!--Validation-->
-                        <div class="col-sm-10">
-                            <div class="alert alert-danger" role="alert" id="errorMessage" style="display: none">
-                            </div>  
-                        </div> 
+                    <div th:if="${ errorMessage != null }">
+                        <div class="alert alert-danger" role="alert">
+                            <span th:text="${errorMessage}"></span>
+                        </div>  
                     </div>
+
+                    <div th:if="${ successMessage != null }">
+                        <div class="alert alert-success" role="alert">
+                            <span th:text="${successMessage}"></span>
+                        </div>  
+                    </div>
+
                     <!-- Fetch the configuration group -->
                     <fieldset th:each="configGroup : ${configurationGroup}">
                         <legend th:text="${configGroup.name}"></legend>
@@ -24,8 +28,8 @@
                             <label th:text="${configuration.name}"></label>
 
                             <div class="form-group">
-                                <img th:src="@{/images/SUCCESS.png}" th:id="${configuration.parameter} + success" style="width: 30px; display: none" alt="Hanger"></img>
-                                <img th:src="@{/images/FAILURE.png}" th:id="${configuration.parameter} + failure" style="width: 30px; display: none" alt="Hanger"></img>
+                                <span class="label label-success" th:id="${configuration.parameter} + success" style="display: none" title="UPDATED">UPDATED</span>
+                                <span class="label label-danger" th:id="${configuration.parameter} + failure" style="display: none" title="NOT UPDATED">NOT UPDATED</span>                                
 
                                 <div class="col-sm-10">
                                     <div th:if="${configuration.type == 'number'}">
@@ -52,28 +56,97 @@
                     </fieldset>
 
                     <fieldset>
-                        <legend>Maintenance</legend>                    
-                        <div class="btn-group">
-                            <a class="btn btn-generic btn-sm" th:id="modal_change_logo" title="Update application logo">                                         
-                                <span class="glyphicon glyphicon-upload" aria-hidden="true"></span> Update logo
-                            </a>
-
-                            <a class="btn btn-generic btn-space btn-sm" th:href="@{/job/maintenance/plugin}" title="Update notification plugin">
-                                <span class="glyphicon glyphicon-plane"></span> Update plugin
-                            </a>
-
-                            <a class="btn btn-generic btn-space btn-sm" th:href="@{/job/refresh/}" title="Update application cache">
-                                <span class="glyphicon glyphicon-refresh"></span> Update cache 
-                            </a>
+                        <legend>Server information</legend>   
+                        <div class="form-group">
+                            <div class="col-sm-10">
+                                <div>
+                                    <label>Database time: </label>
+                                    <span th:text="${databaseTime}"></span>
+                                </div>
+                                <div>
+                                    <label>Server time: </label>
+                                    <span th:text="${serverTime}"></span>
+                                </div>                
+                            </div>
                         </div>
+
+                        <hr/>
                     </fieldset>
+
+                    <div class="btn-group dropup">
+                        <a class="btn btn-generic btn-sm" th:id="modal_change_logo">                                         
+                            <span class="glyphicon glyphicon-upload" aria-hidden="true"></span> Update logo
+                        </a>
+
+                        <a class="btn btn-generic btn-space btn-sm" th:href="@{/job/refresh/}">
+                            <span class="glyphicon glyphicon-refresh"></span> Update cache 
+                        </a>
+
+                        <div class="btn-group pull-right dropup">
+                            <a class="btn btn-notice btn-space btn-sm" th:attr="onclick='modalUpdate();'">
+                                <span class="glyphicon glyphicon-plane" aria-hidden="true"></span> 
+                                Update plugin
+                            </a>
+
+                            <button type="button" class="btn btn-notice btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <span class="caret"></span>
+                                <span class="sr-only"></span>
+                            </button>
+
+                            <ul class="dropdown-menu">                                                                             
+                                <li th:each="server : ${servers}">
+                                    <a th:inline= "text" class="btn btn-sm pull-left" th:attr="onclick='modalUpdate('+${server.id}+');'">
+                                        <span  class="glyphicon glyphicon-tasks" aria-hidden="true"></span> [[${server.name}]]
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
                 </form>
 
                 <!--Modal--> 
-                <div id="modalHolder"/>
+                <div id="modalHolder"></div>
+
+                <!--Begin update modal-->
+                <div class="modal fade" id="modalUpdate" tabindex="-1" role="dialog" aria-labelledby="modalUpate">
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                                <h4 class="modal-title" id="modalParentLabel"> 
+                                    <span>Notification plugin</span>
+                                </h4>
+                            </div>
+                            <div class="modal-body">      
+                                <div class="form-group">
+                                    <span class="alert alert-danger col-sm-12">Are you sure you want to update the Notification Plugin for all jobs?</span>
+                                </div>
+                            </div>
+                            <div class="modal-footer" id="buttons"> 
+                                <a id="modalConfirmUpdate" class="col-xs-5 col-sm-5 col-md-5 btn btn-default btn-sm">
+                                    Yes
+                                </a>
+                                <a id="modalDontConfirmUpdate" class="col-xs-5 col-sm-5 col-md-5 btn btn-default btn-sm" data-dismiss="modal" aria-label="Close">
+                                    No
+                                </a>
+                                <center>
+                                    <button id="modal_wait" type="button" class="btn btn-default btn-sm" style="display:none;">
+                                        <img th:src="@{'/images/ajax-loader.gif'}"></img>
+                                    </button>
+                                </center>
+                            </div>                            
+                        </div>
+                    </div>
+                </div>
+                <!--End update modal-->
             </div>
         </div>
+        <br />
         <script th:inline="javascript">
+            var server;
+
             // Save the especific input configuration on database.
             $("input").blur(function () {
                 var value = $(this).val();
@@ -150,6 +223,60 @@
                     }
                 });
             });
+
+            /**
+             * Show the update notification plugin modal.
+             * 
+             * @returns {undefined}
+             */
+            function modalUpdate() {
+                //Identify if update all servers or just one.
+                if (arguments.length > 0) {
+                    server = arguments[0];
+                } else {
+                    server = null;
+                }
+
+                // Show control buttons and hide loading bar.
+                $("#modalConfirmUpdate").show();
+                $("#modalDontConfirmUpdate").show();
+                $("#modal_wait").hide();
+
+                $("#modalUpdate").modal({backdrop: 'static', keyboard: false});
+            }
+
+            $("#modalConfirmUpdate").click(function () {
+                var url = /*[[@{/job/maintenance/plugin/}]]*/ "/job/maintenance/plugin/";
+
+                //Identify if update just one server
+                if (server) {
+                    url = url + server;
+                }
+
+                // Hide control buttons and appears loading bar.
+                $("#modalConfirmUpdate").hide();
+                $("#modalDontConfirmUpdate").hide();
+                $("#modal_wait").show();
+
+                $.ajax({
+                    type: "GET",
+                    url: url,
+                    success: function (result) {
+                        location.reload();
+                    },
+                    error: function (xhr) {
+                        var responseText = "";
+
+                        if (xhr.responseText !== undefined) {
+                            responseText = xhr.responseText;
+                        }
+
+                        toastr.error("Error updating plugin. " + responseText);
+
+                        $("#modalUpdate").modal('hide');
+                    }
+                });
+            });
         </script>
     </body>
-</html>f
+</html>

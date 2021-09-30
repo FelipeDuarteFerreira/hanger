@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container">
+            <!--OPTION FRAGMENT BEGIN-->
+            <div class="modal fade" id="modalAPIToken" tabindex="-1" role="dialog" aria-labelledby="modalAPITokenLabel" th:fragment="apiToken">
+                <div class="modal-dialog modal-lg" role="document">
+                    <form method="POST" th:action="@{/user/refresh/apiToken}" th:object="${user}" class="form-horizontal" id="form-generate-token">                        
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                                <h4 class="modal-title" id="modalAPILabel">API Token</h4>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <div class="col-sm-12">
+                                        <div class="alert alert-info" role="alert">
+                                            <span id="token" th:text="${'Bearer ' + token}"></span>
+                                        </div>  
+                                        
+                                        <a th:href="@{/swagger-ui/}" title="API Docs" target="_blank">
+                                            <span class="glyphicon glyphicon-file"></span> API Docs
+                                        </a>
+                                    </div>
+                                </div>    
+                            </div>
+                            <div class="modal-footer">                                
+                                <button type="button" class="btn btn-generic btn-sm" data-dismiss="modal">
+                                    <span aria-hidden="true"></span> Close
+                                </button>
+
+                                <button type="submit" name="refresh_token" class="btn btn-generic btn-sm">
+                                    <span aria-hidden="true"></span> Refresh Token
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <!--OPTION FRAGMENT END-->
+        </div>
+    </body>
+</html>

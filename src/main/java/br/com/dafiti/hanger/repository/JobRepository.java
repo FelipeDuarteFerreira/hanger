@@ -24,6 +24,7 @@
 package br.com.dafiti.hanger.repository;
 
 import br.com.dafiti.hanger.model.Job;
+import br.com.dafiti.hanger.model.Server;
 import br.com.dafiti.hanger.model.Subject;
 import br.com.dafiti.hanger.model.User;
 import java.util.HashSet;
@@ -40,5 +41,9 @@ public interface JobRepository extends CrudRepository<Job, Long> {
 
     public HashSet<Job> findByApprover(User user);
 
-    public List<Job> findByNameContainingOrAliasContaining(String name,String alias);
+    public List<Job> findByNameContainingOrAliasContaining(String name, String alias);
+
+    public long countByEnabledTrueAndSubject(Subject subject);
+
+    public List<Job> findByServer(Server server);
 }

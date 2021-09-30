@@ -13,7 +13,13 @@
                             <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                             <h4 class="modal-title" id="modalJobDetailsLabel" th:text="${subject.name}"></h4>
                         </div>
-                        <div class="modal-body">            
+                        <div class="modal-body">    
+                            <!-- Description -->
+                            <div th:if="${subject.description != null and subject.description != ''}">
+                                <div th:utext="${subject.getHTMLDescription()}"></div>
+                                <hr/>
+                            </div>
+
                             <!-- Job details list-->
                             <table id="table" class="table table-hover">
                                 <thead> 
@@ -30,7 +36,7 @@
                                 <tbody>
                                     <tr th:each="jobDetail : ${jobDetails}">
                                         <td>
-                                            <img class="status" th:src="@{'/images/' + ${jobDetail.status} + '.png'}" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}"></img>
+                                            <th:block th:include="monitor/fragmentJobStatus :: jobStatus(${jobDetail})"></th:block>
                                         </td>
                                         <td th:text="${jobDetail.job.server.name}">
                                             Server

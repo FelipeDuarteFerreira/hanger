@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <!--OPTION FRAGMENT BEGIN-->
+            <div class="modal fade" id="modalQuery" tabindex="-1" role="dialog" aria-labelledby="modalQueryLabel" th:fragment="query">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                            <h4 class="modal-title" id="modalQueryLabel">Query</h4>
+                        </div>
+                        <form class="form-horizontal" th:object="${workbenchQuery}" th:action="@{/query/save}" method="post">
+                            <!--ID-->
+                            <input type="hidden" th:field="*{id}"/>
+                            <!--Connection-->
+                            <input type="hidden" th:field="*{connection}"/>
+                            <!--User-->
+                            <input type="hidden" th:field="*{user}"/>
+
+                            <div class="modal-body">
+                                <div th:if="${ errorMessage != null }" class="form-group">
+                                    <!--Validation-->
+                                    <div class="col-sm-12">
+                                        <div class="alert alert-danger" role="alert">
+                                            <span th:text="${errorMessage}"></span>
+                                        </div>  
+                                    </div> 
+                                </div> 
+
+                                <!--Title-->   
+                                <label>Name</label> 
+                                <div class="form-group">
+                                    <div class="col-sm-12">
+                                        <input 
+                                            type="text" 
+                                            class="form-control" 
+                                            maxlength="50" 
+                                            th:field="*{name}" 
+                                            placeholder="Query name"
+                                            required="true"/>
+                                        <span 
+                                            th:if="${#fields.hasErrors('name')}" 
+                                            class="help-block" 
+                                            th:errors="*{name}"></span>
+                                    </div>
+                                </div> 
+
+                                <!--Connection-->   
+                                <label>Connection</label> 
+                                <div class="form-group">
+                                    <div class="col-sm-12">
+                                        <input 
+                                            type="text" 
+                                            class="form-control" 
+                                            maxlength="50" 
+                                            th:field="*{connection.name}" 
+                                            placeholder="Connection" 
+                                            readonly="true" />
+                                    </div>
+                                </div>
+
+                                <!--Query-->   
+                                <div class="form-group">
+                                    <div class="col-sm-12">
+                                        <label>Query</label> 
+                                        <textarea 
+                                            id="query" 
+                                            class="form-control" 
+                                            rows="5" 
+                                            th:field="*{query}" 
+                                            placeholder="Query" 
+                                            maxlength="65000"
+                                            required="true"></textarea>
+                                    </div>
+                                    <span 
+                                        th:if="${#fields.hasErrors('query')}" 
+                                        class="help-block" 
+                                        th:errors="*{query}"></span>
+                                </div>
+
+                                <!--Share-->                                            
+                                <div class="form-group">
+                                    <div class="col-sm-12">
+                                        <label>
+                                            <input  
+                                                id="slack" 
+                                                name="shared"
+                                                type="checkbox" 
+                                                th:field="*{shared}" 
+                                                th:checked="*{shared}"/> 
+                                            Shared
+                                        </label>        
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button 
+                                    type="button" 
+                                    class="btn btn-generic btn-sm" 
+                                    data-dismiss="modal">
+                                    <span aria-hidden="true"></span> 
+                                    Close
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    class="btn btn-generic btn-sm">
+                                    <span aria-hidden="true"></span> 
+                                    Save
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>                
+            </div>
+            <!--OPTION FRAGMENT END-->
+        </div>
+    </body>
+</html>

@@ -23,7 +23,11 @@
  */
 package br.com.dafiti.hanger.model;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import org.json.JSONObject;
 
 /**
  * Mail blueprint
@@ -32,26 +36,54 @@ import java.util.HashMap;
  */
 public class Blueprint {
 
-    String recipient;
+    List<String> recipient;
     String path;
     String subject;
     String template;
+    File file;
     HashMap<String, Object> variables;
 
     public Blueprint(String recipient, String subject, String template) {
-        this.recipient = recipient;
         this.subject = subject;
         this.template = template;
         this.path = "templates/blueprint";
-
-        variables = new HashMap<>();
+        this.variables = new HashMap<>();
+        this.recipient = new ArrayList();
+        this.recipient.add(recipient);
     }
 
-    public String getRecipient() {
-        return recipient;
+    public Blueprint(String subject, String template) {
+        this.subject = subject;
+        this.template = template;
+        this.path = "templates/blueprint";
+        this.variables = new HashMap<>();
+        this.recipient = new ArrayList();
     }
 
+    /**
+     * Return a list of recipients.
+     *
+     * @return
+     */
+    public List<String> getRecipients() {
+        return this.recipient;
+    }
+
+    /**
+     * Add a new recipient.
+     *
+     * @param recipient
+     */
     public void setRecipient(String recipient) {
+        this.recipient.add(recipient);
+    }
+
+    /**
+     * Set a list of recipients.
+     *
+     * @param recipient
+     */
+    public void setRecipient(List<String> recipient) {
         this.recipient = recipient;
     }
 
@@ -86,4 +118,21 @@ public class Blueprint {
     public void addVariable(String key, Object value) {
         this.variables.put(key, value);
     }
+
+    public File getFile() {
+        return file;
+    }
+
+    public void setFile(File file) {
+        this.file = file;
+    }
+
+    @Override
+    public String toString() {
+        JSONObject object = new JSONObject();
+        object.put("subject", subject);
+        object.put("template", template);
+        return object.toString(2);
+    }
+
 }

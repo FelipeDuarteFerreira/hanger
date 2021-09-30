@@ -47,14 +47,14 @@ public class ConfigurationGroupService {
     }
 
     public ConfigurationGroup load(Long id) {
-        return configurationGroupRepository.findOne(id);
+        return configurationGroupRepository.findById(id).get();
     }
 
     public void save(ConfigurationGroup configurationGroup) {
         save(configurationGroup, false);
     }
 
-    public void save(ConfigurationGroup configurationGroup, boolean add) {
+    public ConfigurationGroup save(ConfigurationGroup configurationGroup, boolean add) {
         ConfigurationGroup group = configurationGroupRepository.findByName(configurationGroup.getName());
 
         if (group == null || !add) {
@@ -62,11 +62,13 @@ public class ConfigurationGroupService {
                 configurationGroup.setId(group.getId());
             }
 
-            configurationGroupRepository.save(configurationGroup);
+            group = configurationGroupRepository.save(configurationGroup);
         }
+
+        return group;
     }
 
     public void delete(Long id) {
-        configurationGroupRepository.delete(id);
+        configurationGroupRepository.deleteById(id);
     }
 }

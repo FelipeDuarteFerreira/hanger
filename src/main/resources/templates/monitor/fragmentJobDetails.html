@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity">
     <head lang="en" th:replace="base/header :: head">
         <title>Hanger</title>
     </head>
@@ -7,7 +7,160 @@
         <div class="container">
             <!--Fragment-->
             <div th:fragment="jobDetails">
-                <script type="text/javascript" th:inline="javascript">
+                <div th:if="${not #lists.isEmpty(swimlanes)}" th:each="swimlane, swimlaneStat: ${swimlanes}">  
+                    <fieldset th:if="${not #lists.isEmpty(swimlane.value)}" >
+                        <legend 
+                            th:id="${swimlane.key}" 
+                            th:if="${swimlane.key != 'ALL'}" 
+                            class="space-top swinlane">
+                            <span th:text="${swimlane.key}"
+                                  data-toggle="tooltip" 
+                                  data-placement="left"></span>
+
+                            <span sec:authorize="isAuthenticated()">
+                                <button class="btn btn-link btn-xs"
+                                        title="Build swinlane's jobs"
+                                        data-toggle="tooltip" 
+                                        data-placement="right"
+                                        th:attr="onclick='confirmBuildSwimlane(' + ${currentSubject.id} + ', \'' + ${swimlane.key} + '\')'">
+                                    <span class="glyphicon glyphicon-play" aria-hidden="true"></span>
+                                </button>
+                            </span>
+                        </legend>
+
+                        <label th:if="${swimlane.key != 'ALL'}" th:inline="text" class="label-edit-information">[[*{rules.get(swimlane.key)}]]</label>
+
+                        <table 
+                            th:id="'table_search_' + ${swimlaneStat.index}" 
+                            class="table dataTable no-footer">
+
+                            <thead> 
+                                <tr>
+                                    <th style="width:5%" class="img-sort">Status</th>
+                                    <th style="width:10%">Server</th>
+                                    <th style="width:43%">Job</th>  
+                                    <th style="width:1.5%"><span class="glyphicon glyphicon-bullhorn" title="Warning"></span></th>
+                                    <th style="width:1.5%" class="no-sort"><span class="glyphicon glyphicon-link" title="Link"></span></th>
+                                    <th style="width:1.5%"><span class="glyphicon glyphicon-heart-empty" title="Check-Up"></span></th>
+                                    <th style="width:16%">Updated</th>
+                                    <th style="width:18%">Rule</th>
+                                    <th style="width:1%" class="no-sort"></th>
+                                    <th style="width:1%" class="no-sort"></th>
+                                    <th style="width:1%" class="no-sort"></th>
+                                    <th style="width:1%" class="no-sort"></th>
+                                    <th style="width:1%" class="no-sort"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="jobDetail : ${swimlane.value}">
+                                    <td>
+                                        <th:block th:include="monitor/fragmentJobStatus :: jobStatus(${jobDetail})"></th:block>
+                                    </td>
+                                    <td th:text="${jobDetail.job.server.name}">Server</td>
+                                    <th:block th:switch="${ not #lists.isEmpty(jobDetail.job.parent)}"> 
+                                        <td th:case="true"> 
+                                            <button 
+                                                class="btn btn-link btn-sm hanger-no-border" 
+                                                th:text="${ #strings.abbreviate( jobDetail.job.displayName, 65 ) }" 
+                                                th:title="${'Show dependencies status of ' + jobDetail.job.displayName}" 
+                                                th:id="'modal_parents_details_' + ${jobDetail.job.id}" 
+                                                th:attr="onclick='showParentsDetails(' + ${jobDetail.job.id} + ');'"
+                                                th:value="${jobDetail.job.id}">                                    
+                                            </button>
+                                        </td>
+
+                                        <td th:case="false" 
+                                            th:text="${ #strings.abbreviate( jobDetail.job.displayName, 65 ) }"
+                                            th:title="${jobDetail.job.displayName}"> Job 
+                                        </td>
+                                    </th:block>
+                                    <th:block th:switch="${#lists.isEmpty(jobDetail.warning)}">
+                                        <div th:case="true">
+                                            <div th:if="${#lists.isEmpty(jobDetail.warning)}">
+                                                <td></td>
+                                            </div>
+                                        </div>
+
+                                        <div th:case="false">                                       
+                                            <td>
+                                                <button class="btn btn-link hanger-no-border" 
+                                                        th:inline="text" 
+                                                        th:id="'modal_warning_' + ${jobDetail.job.id}" 
+                                                        th:attr="onclick='showJobWarning(' + ${jobDetail.job.id} + ');'"
+                                                        th:value="${jobDetail.job.id}">[[${#lists.size(jobDetail.warning)}]]</button>
+                                            </td>
+                                        </div>
+                                    </th:block>
+                                    <td>
+                                        <div class="dropdown">
+                                            <button class="dropdown-toggle btn btn-link hanger-no-border" data-toggle="dropdown">
+                                                <span class="caret"></span></button>
+                                            <ul class="dropdown-menu">
+                                                <li>
+                                                    <a class="link node-link" th:href="@{'/job/log/' + ${jobDetail.job.id}}"> Log</a>
+                                                </li>
+                                                <li>
+                                                    <a class="link node-link" th:href="@{ ${jobDetail.job.server.url} + 'job/' + ${jobDetail.job.name}}" target="_blank"> Job</a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div th:if="${ not #lists.isEmpty(jobDetail.job.checkup) }">
+                                            <a th:href="@{'/checkup/job/' + ${jobDetail.job.id} + '/list'}" target="_blank" class="node-link">
+                                                +
+                                            </a>
+                                        </div>                                
+                                    </td>
+                                    <td th:text="${jobDetail.buildTime}">Updated</td>
+                                    <td th:text="${jobDetail.scope}">Rule</td>
+                                    <td>
+                                        <div sec:authorize="isAuthenticated()">                            
+                                            <button class="btn btn-generic btn-xs pull-right" 
+                                                    th:if="${jobDetail.job.enabled}"
+                                                    th:attr="onclick='buildJob(' + ${jobDetail.job.id} + ', \'' + ${jobDetail.job.name} + '\');'">
+
+                                                <span class="glyphicon glyphicon-play" aria-hidden="true"></span> Build
+                                            </button>
+                                        </div>
+                                    </td>     
+                                    <td>
+                                        <a th:href="@{'/flow/job/'  + ${jobDetail.job.id}}" class="btn btn-generic btn-xs">
+                                            <span class="glyphicon glyphicon-random" aria-hidden="true"></span> Flow
+                                        </a>  
+                                    </td>
+                                    <td>
+                                        <a th:href="@{'/job/view/' + ${jobDetail.job.id}}" class="btn btn-generic btn-xs">
+                                            <span class="glyphicon glyphicon-unchecked" aria-hidden="true"></span> See
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <div th:if="${ 
+                                             ( #httpServletRequest.isUserInRole('ADMIN') or #httpServletRequest.isUserInRole('HERO') ) and 
+                                             not ( #httpServletRequest.getRequestURI().contains('detail/all') or  #httpServletRequest.getRequestURI().contains('search') ) }">
+
+                                            <button class="btn btn-delete btn-xs pull-right" 
+                                                    th:attr="onclick='deleteJobModal('+${jobDetail.job.id} + ',' + ${currentSubject.id} + ', \'' + ${jobDetail.job.name} + '\', \'' +${currentSubject.name}+ '\');'">
+                                                <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Remove
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div th:if="${jobDetail.approval}">
+                                            <a class="btn btn-notice btn-xs pull-right" th:href="@{'/approval/approval/'+${jobDetail.job.id} }" title="Approval" target="_blank">
+                                                <span class="glyphicon glyphicon-check"></span> Approval
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>  
+                        </table>
+                    </fieldset>
+                </div>
+
+                <div id="modalHolder"></div>
+
+                <script th:inline="javascript">
                     /**
                      * Show the job warning list. 
                      * 
@@ -54,7 +207,7 @@
 
                         $.ajax({
                             type: "GET",
-                            url: url + "/" + id,
+                            url: url + id,
                             timeout: 30000,
                             success: function (result) {
                                 if (result) {
@@ -68,83 +221,91 @@
                             }
                         });
                     }
+
+                    /**
+                     * Display swimlane job build confirmation modal.
+                     * 
+                     * @param {type} id
+                     * @param {type} name
+                     * @returns {undefined}
+                     */
+                    function confirmBuildSwimlane(id, swimlane) {
+                        bootbox.confirm({
+                            title: swimlane + " swimlane",
+                            message: "You are about to build all jobs in swimlane " + swimlane + ", are you sure?",
+                            callback: function (result) {
+                                if (result) {
+                                    buildSwimlane(id, swimlane);
+                                }
+                            }
+                        });
+                    }
+
+                    /**
+                     * Build all jobs swimlane.
+                     * 
+                     * @param {type} id ID
+                     * @param {type} name
+                     * @returns {undefined}
+                     */
+                    function buildSwimlane(id, swimlane) {
+                        var url = /*[[@{/subject/build/swimlane/}]]*/ "/subject/build/swimlane/";
+
+                        toastr.options = {
+                            "closeButton": true,
+                            "progressBar": true,
+                            "positionClass": "toast-top-right",
+                            "timeOut": "2500",
+                            "showEasing": "swing",
+                            "hideEasing": "linear",
+                            "showMethod": "fadeIn",
+                            "hideMethod": "fadeOut"
+                        }
+
+                        $.ajax({
+                            type: "GET",
+                            url: url + id + "/" + swimlane,
+                            timeout: 30000,
+                            success: function (result) {
+                                if (result) {
+                                    toastr.success("Jobs build started successfully.");
+                                } else {
+                                    toastr.error("Error building jobs from " + swimlane + " swimlane");
+                                }
+
+                                setTimeout(function () {
+                                    window.location.reload(1);
+                                }, 2500);
+                            },
+                            error: function (e) {
+                                toastr.error('Error on build request of ' + swimlane);
+                            }
+                        });
+                    }
+
+                    /**
+                     * Show the job parents details.
+                     * 
+                     * @param {type} id
+                     * @returns {undefined}
+                     */
+                    function showParentsDetails(id) {
+                        var url = /*[[@{/flow/modal/parents/details/}]]*/ "/flow/modal/parents/details/1";
+
+                        $.ajax({
+                            type: "GET",
+                            url: url + id,
+                            timeout: 30000,
+                            success: function (result) {
+                                $("#modalHolder").html(result);
+                                $("#modalParentsDetails").modal({backdrop: 'static', keyboard: false});
+                            },
+                            error: function (e) {
+                                alert("Fail loading job parents " + e);
+                            }
+                        });
+                    }
                 </script>
-
-                <table id="table" class="table table-hover space-top">
-                    <thead> 
-                        <tr>
-                            <th style="width:5%" class="img-sort">Status</th>
-                            <th style="width:10%">Server</th>
-                            <th style="width:43%">Job</th>  
-                            <th style="width:1.5%"><img class="hanger-img-sm" th:src="@{'/images/WARNING.png'}" alt="WARNING" title="WARNING"></img></th>
-                            <th style="width:1.5%" class="no-sort"><span class="glyphicon glyphicon-link" title="LINK"></span></th>
-                            <th style="width:18%">Scope</th>
-                            <th style="width:16%">Update</th>
-                            <th style="width:2%" class="no-sort"></th>
-                            <th style="width:2%" class="no-sort"></th>
-                            <th style="width:1%"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr th:each="jobDetail : ${jobDetails}">
-                            <td>
-                                <img class="status" th:src="@{'/images/' + ${jobDetail.status} + '.png'}" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}"></img>
-                            </td>
-                            <td th:text="${jobDetail.job.server.name}">Server</td>
-                            <td>
-                                <a class="link" th:href="@{'/flow/job/'  + ${jobDetail.job.id}}" th:text="${jobDetail.job.displayName}"></a>
-                            </td>
-                            <div th:switch="${#lists.isEmpty(jobDetail.warning)}">
-                                <div th:case="true">
-                                    <div th:if="${#lists.isEmpty(jobDetail.warning)}"><td></td></div>
-                                </div>
-
-                                <div th:case="false">                                       
-                                    <td><button class="btn btn-link hanger-no-border" 
-                                                th:inline="text" 
-                                                th:id="'modal_warning_' + ${jobDetail.job.id}" 
-                                                th:attr="onclick='showJobWarning(' + ${jobDetail.job.id} + ');'"
-                                                th:value="${jobDetail.job.id}">[[${#lists.size(jobDetail.warning)}]]</button></td>
-                                </div>
-                            </div>
-                            <td>
-                                <a class="link" th:href="@{ ${jobDetail.job.server.url} + 'job/' + ${jobDetail.job.name}}" target="_blank"> +</a>
-                            </td>
-                            <td th:text="${jobDetail.scope}">Scope</td>
-                            <td th:text="${jobDetail.buildTime}">Build time</td>
-                            <td>
-                                <div sec:authorize="isAuthenticated()">                            
-                                    <button class="btn btn-generic btn-xs pull-right" 
-                                            th:if="${jobDetail.job.enabled}"
-                                            th:attr="onclick='buildJob(' + ${jobDetail.job.id} + ', \'' + ${jobDetail.job.name} + '\');'">
-
-                                        <span class="glyphicon glyphicon-play" aria-hidden="true"></span> Build
-                                    </button>
-                                </div>
-                            </td>                            
-                            <td>
-                                <div th:if="${ 
-                                     ( #httpServletRequest.isUserInRole('ADMIN') or #httpServletRequest.isUserInRole('HERO') ) and 
-                                     not ( #httpServletRequest.getRequestURI().contains('detail/all') or  #httpServletRequest.getRequestURI().contains('search') ) }">
-
-                                    <button class="btn btn-delete btn-xs pull-right" 
-                                            th:attr="onclick='deleteJobModal('+${jobDetail.job.id} + ',' + ${currentSubject.id} + ', \'' + ${jobDetail.job.name} + '\', \'' +${currentSubject.name}+ '\');'">
-                                        <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete
-                                    </button>
-                                </div>
-                            </td>
-                            <td>
-                                <div th:if="${jobDetail.approval}">
-                                    <a class="btn btn-approval btn-xs pull-right" th:href="@{'/approval/approval/'+${jobDetail.job.id} }" title="Approval" target="_blank">
-                                        <span class="glyphicon glyphicon-check"></span> Approval
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>  
-                </table>
-
-                <div id="modalHolder"/>
             </div>
         </div>       	
     </body>

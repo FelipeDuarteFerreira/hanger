@@ -23,9 +23,12 @@
  */
 package br.com.dafiti.hanger.repository;
 
+import br.com.dafiti.hanger.model.JobCheckup;
 import br.com.dafiti.hanger.model.JobCheckupLog;
 import java.util.Date;
+import java.util.List;
 import javax.transaction.Transactional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.CrudRepository;
 
@@ -34,4 +37,6 @@ public interface JobCheckupLogRepository extends CrudRepository<JobCheckupLog, L
     @Modifying
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     public void deleteByDateBefore(Date date);
+
+    List<JobCheckupLog> findByCheckupAndDateBetweenOrderByDateDesc(JobCheckup jobCheckup, Date from, Date to, Pageable pageable);
 }

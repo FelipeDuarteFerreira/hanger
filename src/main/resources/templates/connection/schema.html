@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <ol class="breadcrumb breadcrumb-connection">
+                <li th:inline="text">
+                    <a th:href="@{'/connection/list/'}">                    
+                        Connection
+                    </a>
+                </li>
+                <li th:inline="text">[[${connection.name}]]</li>
+            </ol>
+
+            <div th:if="${ errorMessage != null }" class="form-group">
+                <div class="alert alert-danger" role="alert">
+                    <span th:text="${errorMessage}"></span>
+                </div>  
+            </div>
+
+            <div th:if="${ successMessage != null }" class="form-group">
+                <div class="alert alert-success" role="alert">
+                    <span th:text="${successMessage}"></span>
+                </div>  
+            </div>
+
+            <table id="table" class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="width:1%">#</th>
+                        <th>Catalog</th>
+                        <th>Schema</th>
+                        <th class="no-sort" style="width:1%"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="metadata, stat : ${metadata}">
+                        <td th:text="${stat.index + 1}"></td>
+                        <td th:text="${metadata.catalog}"></td>
+                        <td th:text="${metadata.schema}"></td>
+                        <td>
+                            <a th:href="@{'/connection/' + ${connection.id} + '/table'(catalog=${metadata.catalog},schema=${metadata.schema})}" class="btn btn-generic btn-xs">
+                                <span class="glyphicon glyphicon-list" aria-hidden="true"></span> Table
+                            </a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </body>
+</html>

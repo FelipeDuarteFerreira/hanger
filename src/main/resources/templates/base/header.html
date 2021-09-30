@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity4">
     <head lang="en" th:fragment="head" >
         <!--HEAD FRAGMENT BEGIN-->
         <title>Hanger</title>
@@ -26,30 +26,44 @@
         <link rel="stylesheet" th:href="@{/css/bootstrap-slider.css}"/>
         <link rel="stylesheet" th:href="@{/css/bootstrap-datepicker3.min.css}"/>
         <link rel="stylesheet" th:href="@{/css/toastr.min.css}"/>
-        <link rel="stylesheet" th:href="@{/css/basicContext.min.css}"/>
         <link rel="stylesheet" th:href="@{/css/default.min.css}"/>
+        <link rel="stylesheet" th:href="@{/css/dhtmlxgantt.css}"/>   
+        <link rel="stylesheet" th:href="@{/css/codemirror.css}"/>  
+        <link rel="stylesheet" th:href="@{/css/context-menu.min.css}"/>
+        <link rel="stylesheet" th:href="@{/css/jstree/style.min.css}"/>
+        <link rel="stylesheet" th:href="@{/css/eclipse.css}"/>
 
         <!--JS-->
-        <script th:src="@{/webjars/jquery/3.3.1/jquery.min.js}"/>  
-        <script th:src="@{/webjars/bootstrap/3.3.7-1/js/bootstrap.min.js}"/>  
-        <script th:src="@{/webjars/bootstrap-select/1.12.4/js/bootstrap-select.min.js}"/>          	
-        <script th:src="@{/webjars/datatables/1.10.19/js/jquery.dataTables.min.js}"/>  
-        <script th:src="@{/webjars/datatables/1.10.19/js/dataTables.bootstrap.min.js}"/>
-        <script th:src="@{/js/Treant.js}"/>  
-        <script th:src="@{/js/raphael.min.js}"/>  
-        <script th:src="@{/js/prism.js}"/>  
-        <script th:src="@{/js/alt-string.js}"/>
-        <script th:src="@{/js/jquery.cookie.js}"/>    
-        <script th:src="@{/js/bootstrap-toggle.min.js}"/>  
-        <script th:src="@{/js/moment.min.js}"/> 
-        <script th:src="@{/js/jquery.daterangepicker.min.js}"/> 
-        <script th:src="@{/js/dragscroll.js}"/>  
-        <script th:src="@{/js/bootstrap-slider.js}"/>
-        <script th:src="@{/js/bootstrap-datepicker.min.js}"/>
-        <script th:src="@{/js/hanger.js}"/>
+        <script th:src="@{/webjars/jquery/3.5.1/jquery.min.js}"></script>
+        <script th:src="@{/webjars/bootstrap/3.3.7-1/js/bootstrap.min.js}"></script>
+        <script th:src="@{/webjars/bootstrap-select/1.12.4/js/bootstrap-select.min.js}"></script>
+        <script th:src="@{/webjars/datatables/1.10.19/js/jquery.dataTables.min.js}"></script>
+        <script th:src="@{/webjars/datatables/1.10.19/js/dataTables.bootstrap.min.js}"></script>
+        <script th:src="@{/js/Treant.js}"></script>
+        <script th:src="@{/js/raphael.min.js}"></script>
+        <script th:src="@{/js/prism.js}"></script>
+        <script th:src="@{/js/alt-string.js}"></script>
+        <script th:src="@{/js/jquery.cookie.js}"></script>
+        <script th:src="@{/js/bootstrap-toggle.min.js}"></script>
+        <script th:src="@{/js/moment.min.js}"></script>
+        <script th:src="@{/js/daterangepicker.js}"></script>
+        <script th:src="@{/js/dragscroll.js}"></script>
+        <script th:src="@{/js/bootstrap-slider.js}"></script>
+        <script th:src="@{/js/bootstrap-datepicker.min.js}"></script>
+        <script th:src="@{/js/hanger.js}"></script>
         <script th:src="@{/js/toastr.js}"></script>
-        <script th:src="@{/js/basicContext.min.js}"></script>
-
+        <script th:src="@{/js/dhtmlxgantt.js}"></script>
+        <script th:src="@{/js/codemirror.js}"></script>
+        <script th:src="@{/js/codemirror-sql.js}"></script>
+        <script th:src="@{/js/codemirror-shell.js}"></script>
+        <script th:src="@{/js/context-menu.min.js}"></script>
+        <script th:src="@{/js/jstree.min.js}"></script>
+        <script th:src="@{/js/clipboard.min.js}"></script>
+        <script th:src="@{/js/chart.js}"></script>
+        <script th:src="@{/js/chartjs-plugin-datalabels.js}"></script>
+        <script th:src="@{/js/chartjs-plugin-colorschemes.min.js}"></script>
+        <script th:src="@{/js/bootbox.min.js}"></script>
+        <script th:src="@{/js/bootbox.locales.min.js}"></script>
         <!--HEAD FRAGMENT END-->
     </head>
     <body>
@@ -68,33 +82,147 @@
                         <li th:classappend="${#httpServletRequest.getRequestURI() == '/' 
                             || #httpServletRequest.getRequestURI() == '/hanger/'
                             || #httpServletRequest.getRequestURI().contains('/detail/') ? 'active':''}"><a th:href="@{/}" title="Monitor"><span class="sub_icon glyphicon glyphicon-dashboard"></span>Monitor</a></li> 
-                        <li th:classappend="${#httpServletRequest.getRequestURI().contains('/search/') ? 'active':''}"><a th:href="@{/search/search}" title="Search"><span class="sub_icon glyphicon glyphicon-search"></span>Search</a></li>
-                        <li th:classappend="${#httpServletRequest.getRequestURI().contains('/server/') ? 'active':''}"><a th:href="@{/server/list}" title="Server"><span class="sub_icon glyphicon glyphicon-tasks"></span>Server</a></li> 
-                        <li th:classappend="${#httpServletRequest.getRequestURI().contains('/connection/') ? 'active':''}"><a th:href="@{/connection/list}" title="Connection"><span class="sub_icon glyphicon glyphicon-flash"></span>Connection</a></li>
-                        <li th:classappend="${#httpServletRequest.getRequestURI().contains('/subject/') ? 'active':''}"><a th:href="@{/subject/list}" title="Subject"><span class="sub_icon glyphicon glyphicon-tag"></span>Subject</a></li> 
+                        <li id="teste" th:classappend="${#httpServletRequest.getRequestURI().contains('/search/') ? 'active':''}">
+                            <a th:href="@{/search/search}" title="Search"><span class="sub_icon glyphicon glyphicon-search"></span>Search</a>
+                        </li>
+                        <li th:classappend="${#httpServletRequest.getRequestURI().contains('/workbench/') ? 'active':''}">
+                            <a class="menu_link_option" th:href="@{/workbench/studio/}" title="Workbench">
+                                <span class="sub_icon glyphicon glyphicon-play"></span>Workbench
+                            </a>
+                            <div sec:authorize="isAuthenticated()">
+                                <div class="dropdown menu_dropdown">
+                                    <button class="btn btn-default dropdown-toggle no-border bg-transparent" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                                        <span class="caret"></span>
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
+                                        <li>
+                                            <a th:href="@{'/query/stored/'}">Saved queries</a>
+                                        </li>
+                                        <li>
+                                            <a th:href="@{'/email/stored/'}">Saved e-mails</a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </li>                                               
+                        <li th:classappend="${#httpServletRequest.getRequestURI().contains('/server/') ? 'active':''}">
+                            <a class="menu_link_option" th:href="@{/server/list}" title="Server">
+                                <span class="sub_icon glyphicon glyphicon-tasks"></span>Server
+                            </a>
+                            <div class="dropdown menu_dropdown">
+                                <button class="btn btn-default dropdown-toggle no-border bg-transparent" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                                    <span class="caret"></span>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
+                                    <li>
+                                        <a th:href="@{'/server/add/'}">Add server</a>
+                                    </li>
+                                </ul>
+                            </div>  
+                        </li>  
+                        <li th:classappend="${#httpServletRequest.getRequestURI().contains('/connection/') ? 'active':''}">
+                            <a class="menu_link_option" th:href="@{/connection/list}" title="Connection">
+                                <span class="sub_icon glyphicon glyphicon-flash"></span>Connection
+                            </a>
+                            <div class="dropdown menu_dropdown">
+                                <button class="btn btn-default dropdown-toggle no-border bg-transparent" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                                    <span class="caret"></span>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
+                                    <li>
+                                        <a th:href="@{'/connection/add/'}">Add connection</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        <li th:classappend="${#httpServletRequest.getRequestURI().contains('/subject/') ? 'active':''}">
+                            <a class="menu_link_option" th:href="@{/subject/list}" title="Subject">
+                                <span class="sub_icon glyphicon glyphicon-tag"></span>Subject
+                            </a>
+                            <div class="dropdown menu_dropdown">
+                                <button class="btn btn-default dropdown-toggle no-border bg-transparent" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                                    <span class="caret"></span>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
+                                    <li>
+                                        <a th:href="@{'/subject/add/'}">Add subject</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li> 
                         <li th:classappend="${#httpServletRequest.getRequestURI().contains('/job/')
-                            || #httpServletRequest.getRequestURI().contains('/build/') ? 'active':''}"><a th:href="@{/job/list}" title="Job"><span class="sub_icon glyphicon glyphicon-file"></span>Job</a></li>  
+                            || #httpServletRequest.getRequestURI().contains('/build/') ? 'active':''}">
+                            <a class="menu_link_option" th:href="@{/job/list}" title="Job">
+                                <span class="sub_icon glyphicon glyphicon-file"></span>Job
+                            </a>
+                            <div class="dropdown menu_dropdown">
+                                <button class="btn btn-default dropdown-toggle no-border bg-transparent" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                                    <span class="caret"></span>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
+                                    <li>
+                                        <a th:href="@{'/job/add/'}">Add job</a>
+                                    </li>
+                                    <li>
+                                        <a th:href="@{'/template/list'}">Shell Script template</a>
+                                    </li>
+                                    <li>
+                                        <a th:href="@{'/build/gantt'}">Gantt</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>  
                         <li th:classappend="${#httpServletRequest.getRequestURI().contains('/log/') ? 'active':''}"><a th:href="@{/log/list}" title="Log"><span class="sub_icon glyphicon glyphicon-sunglasses"></span>Log</a></li>
-                        <li th:classappend="${#httpServletRequest.getRequestURI().contains('/user/') ? 'active':''}"><a th:href="@{/user/list}" title="User"><span class="sub_icon glyphicon glyphicon-user"></span>User</a></li>
+                        <li th:classappend="${#httpServletRequest.getRequestURI().contains('/user/') ? 'active':''}">
+                            <a class="menu_link_option" th:href="@{/user/list}" title="User">
+                                <span class="sub_icon glyphicon glyphicon-user"></span>User
+                            </a>
+                            <div class="dropdown menu_dropdown">
+                                <button class="btn btn-default dropdown-toggle no-border bg-transparent" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                                    <span class="caret"></span>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
+                                    <li>
+                                        <a th:href="@{'/user/add/'}">Add user</a>
+                                    </li>
+                                    <li>
+                                        <a th:href="@{'/user/password/'}">Change password</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
                         <li th:classappend="${#httpServletRequest.getRequestURI().contains('/configuration/') ? 'active':''}"><a th:href="@{/configuration/edit}" title="Configuration"><span class="sub_icon glyphicon glyphicon-cog"></span>Configuration</a></li>                        
                     </ul>
 
-                    <div class="login_logout">
+                    <div class="wrapper-bottom">
                         <span sec:authorize="isAuthenticated()">
-                            <div>
-                                <div>
-                                    <p th:attr="data-letters=${#authentication.getPrincipal().getFirstName().substring(0, 1) + #authentication.getPrincipal().getLastName().substring(0, 1)}" class="text-center profile-icon"></p>
-                                    <p th:inline="text" class="text-center">[[${#authentication.getPrincipal().getFirstName() + ' ' + #authentication.getPrincipal().getLastName()}]]</p>
-                                </div>                                
-                                <a href="#" onclick="javascript:logoutForm.submit();" th:inline="text" title="Login">
-                                    <div class="text-center">Logout<span class="glyphicon glyphicon-off" style="margin-left:5px"></span></div>
-                                </a>
-                                <form th:action="@{/logout}" method="post" id="logoutForm">
-                                    <input type="hidden" 
-                                           name="${_csrf.parameterName}"
-                                           value="${_csrf.token}" />
-                                </form>                                
-                            </div>
+                            <p th:attr="data-letters=${#authentication.getPrincipal().getFirstName().substring(0, 1) + #authentication.getPrincipal().getLastName().substring(0, 1)}" 
+                               class="text-center profile-icon" 
+                               th:classappend="'profile-icon-color-' + ${T(Math).abs(#authentication.getPrincipal().getId() % 5)}">
+                            </p>
+                            <p th:inline="text" 
+                               class="text-center">
+                                <a class="menu_link_option" 
+                                   th:href="@{'/user/edit/' + ${#authentication.getPrincipal().getId()}}" 
+                                   title="User Settings"
+                                   data-toggle="tooltip" 
+                                   data-placement="top">
+                                    [[${#authentication.getPrincipal().getFirstName() + ' ' + #authentication.getPrincipal().getLastName()}]]
+                                </a> 
+                            </p>                                
+                            <a href="#" 
+                               onclick="javascript:logoutForm.submit();" 
+                               th:inline="text" 
+                               title="Logout"
+                               data-toggle="tooltip" 
+                               data-placement="bottom">
+                                <div class="text-center">Logout<span class="glyphicon glyphicon-off" style="margin-left:5px"></span></div>
+                            </a>
+                            <form th:action="@{/logout}" method="post" id="logoutForm">
+                                <input type="hidden" 
+                                       name="${_csrf.parameterName}"
+                                       value="${_csrf.token}" />
+                            </form>   
                         </span>
 
                         <span sec:authorize="!isAuthenticated()">
@@ -104,6 +232,25 @@
                                 </a>
                             </div>
                         </span>
+                        <div class="hanger-version">
+                            <a href="https://github.com/dafiti-group/hanger/releases" 
+                               target="_blank" 
+                               class="link-version"
+                               th:inline="text">
+                                <!--Picks the version from pom.xml-->
+                                v[[${@environment.getProperty('application-version')}]]
+                            </a>
+
+                            <span style="color:#eee">|</span> 
+
+                            <a href="https://github.com/dafiti-group/hanger"
+                               target="_blank"
+                               class="documentation"
+                               title="Hanger Documentation"
+                               th:inline="text">
+                                <span class="glyphicon glyphicon-education"></span>
+                            </a>
+                        </div>
                     </div>
                 </div>
                 <div id="page-content-wrapper">

@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" 
+      xmlns:th="http://www.thymeleaf.org" 
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content p-0">
+            <div class="tab-content">
+                <div class="form-horizontal">                        
+                    <div class="col-sm-12 space-top">
+                        <div class="collapse in" id="workbench_top">
+                            <div class="form-group row">
+                                <div class="col-sm-3 space-right">
+                                    <div class="form-group">                                    
+                                        <select 
+                                            id="connection" 
+                                            class="selectpicker form-control" 
+                                            data-live-search="true" 
+                                            required="true">
+                                            <option th:each="conn : ${connections}" 
+                                                    th:value="${conn.id}" 
+                                                    th:text="${conn.name}"
+                                                    th:selected="${connection != null ? conn == connection : 0}">
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <input type="text"
+                                               id="jstree-search"
+                                               class="form-control form-control-search" 
+                                               maxlength="50" 
+                                               placeholder="Search:"/>
+
+                                        <div class="div-jstree">
+                                            <div id="jstree"></div>
+                                        </div>                                
+                                    </div>                                
+                                </div> 
+                                <div class="col-sm-9">
+                                    <div class="form-group">
+                                        <textarea 
+                                            class="form-control" 
+                                            id="cm" 
+                                            required="true" 
+                                            rows="10" 
+                                            minlength="1" 
+                                            maxlength="5000"
+                                            th:text="${query != null ? query : ''}">
+                                        </textarea>
+                                    </div> 
+
+                                    <div class="form-group">
+                                        <div class="alert alert-info pull-left wb-alert">
+                                            <span class="bold" th:text="${'LIMIT ' + maxRows}"></span>
+                                        </div>
+
+                                        <div class="btn-group pull-right dropup">                                        
+                                            <button 
+                                                id="cancel-button" 
+                                                class="btn-notice btn-sm pull-right btn-space" 
+                                                type="button"
+                                                style="display:none;">
+
+                                                <span class="glyphicon glyphicon-stop" 
+                                                      aria-hidden="true"></span> Cancel
+                                            </button>
+
+                                            <button 
+                                                id="options-button"
+                                                type="button" 
+                                                class="btn btn-generic btn-sm pull-right dropdown-toggle" 
+                                                data-toggle="dropdown" 
+                                                aria-haspopup="true" 
+                                                aria-expanded="false">
+                                                <span class="glyphicon glyphicon-menu-hamburger"></span>
+                                                <span class="sr-only"></span>
+                                            </button>
+
+                                            <ul class="dropdown-menu">    
+                                                <li class="btn btn-sm pull-left">
+                                                    <a id="save-query-button" class="btn btn-sm pull-left" title="Save a query">
+                                                        <span  class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span> 
+                                                        Save a query
+                                                    </a>
+                                                    <a id="email-button" class="btn btn-sm pull-left" title="Save an e-mail">
+                                                        <span  class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span> 
+                                                        Save an e-mail
+                                                    </a>
+                                                    <a id="export-button" class="btn btn-sm pull-left" title="Export as csv">
+                                                        <span  class="glyphicon glyphicon-export" aria-hidden="true"></span> 
+                                                        Export as csv
+                                                    </a>
+                                                </li>
+                                            </ul>
+
+                                            <button 
+                                                id="play-button" 
+                                                class="btn btn-generic btn-sm pull-right btn-space" 
+                                                type="button">
+
+                                                <span class="glyphicon glyphicon-play" 
+                                                      aria-hidden="true"></span> Play
+                                            </button>
+
+                                            <button 
+                                                id="wait" 
+                                                type="button"
+                                                class="btn btn-default btn-sm" 
+                                                style="display:none;">
+
+                                                <img th:src="@{'/images/ajax-loader.gif'}"></img>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>      
+                        </div>
+
+                        <div class="form-group">                            
+                            <div id="workbench_collapse_top" class="text-center">
+                                <a class="link glyphicon glyphicon-triangle-top" 
+                                   id="a_collapse_top"
+                                   data-toggle="collapse" 
+                                   href="#workbench_top" 
+                                   role="button" aria-expanded="false" 
+                                   aria-controls="workbench_top" 
+                                   title="Click me to see a greater table."
+                                   style="text-decoration: none">
+                                </a>
+                            </div>
+                            <hr class="hanger-no-border"/>
+                        </div>
+
+                        <div class="form-group">
+                            <div id="workbench_bottom">
+                                <!--Fragment-->
+                                <div id="fragmentQueryResultSetHolder" />
+
+                                <div th:if="${ errorMessage != null }" class="row">
+                                    <div class="col-sm-12">
+                                        <div class="form-group">
+                                            <div class="alert alert-danger" role="alert">
+                                                <span th:text="${errorMessage}"></span>
+                                            </div>  
+                                        </div>
+                                    </div>
+                                </div>
+                                <div th:if="${ successMessage != null }" class="row">
+                                    <div class="col-sm-12">
+                                        <div class="form-group">
+                                            <div class="alert alert-info" role="alert">
+                                                <span th:text="${successMessage}"></span>
+                                            </div>  
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!--AJAX Parent modal --> 
+            <div id="modalHolder"></div>
+        </div>
+
+        <script th:inline="javascript">
+            $(document).ready(function () {
+                toastr.options = {
+                    "closeButton": true,
+                    "progressBar": true,
+                    "positionClass": "toast-top-right",
+                    "timeOut": "3500",
+                    "showEasing": "swing",
+                    "hideEasing": "linear",
+                    "showMethod": "fadeIn",
+                    "hideMethod": "fadeOut"
+                }
+
+                // Connection ID.
+                var connection = $("#connection").val();
+                // Tree initial construction.
+                createJSTree(connection);
+
+                /**
+                 * Change connection event.
+                 */
+                $("#connection").change(function () {
+                    connection = $(this).val();
+                    createJSTree(connection);
+                });
+
+                /**
+                 * Defines code mirror object. 
+                 * @type type
+                 */
+                var codeMirror = CodeMirror.fromTextArea(document.getElementById('cm'), {
+                    mode: 'text/x-sql',
+                    indentWithTabs: true,
+                    smartIndent: true,
+                    lineNumbers: true,
+                    matchBrackets: true,
+                    theme: 'eclipse',
+                    autofocus: true,
+                    extraKeys: {"Ctrl-Enter": function () {
+                            $("#fragmentQueryResultSetHolder").show();
+                            query();
+                        }}
+                });
+
+                codeMirror.setSize("100%", "350px");
+                window.editor = codeMirror;
+
+                /**
+                 * Links the size of the editor with the database tree. 
+                 */
+                var resizeObserver = new ResizeObserver(entries => {
+                    $(".div-jstree").css("height", codeMirror.getScrollerElement().clientHeight - 80 + 'px');
+                });
+
+                resizeObserver.observe(document.querySelector("div.CodeMirror"));
+
+                /**
+                 * Set header CSRF Token.
+                 * @returns {undefined}
+                 */
+                $.ajaxSetup({
+                    headers: {'X-CSRF-Token': $('#_csrf').attr('content')}
+                });
+
+                /**
+                 * Define ajax start behavior. 
+                 * @returns {undefined}
+                 */
+                $(document).ajaxStart(function () {
+                    $("#wait").css("display", "inline");
+                    $("#cancel-button").css("display", "inline");
+                    $("#cm").prop("disabled", true);
+                    $("#play-button, #options-button").prop('disabled', true);
+                });
+
+                /**
+                 * Define ajax complete behavior. 
+                 * @returns {undefined}
+                 */
+                $(document).ajaxComplete(function () {
+                    $("#wait").css("display", "none");
+                    $("#cancel-button").css("display", "none");
+                    $("#cm").prop("disabled", false);
+                    $("#play-button, #options-button").prop('disabled', false);
+                });
+
+                /**
+                 * Play a query. 
+                 */
+                $("#play-button").click(function () {
+                    $("#fragmentQueryResultSetHolder").show();
+                    query();
+                });
+
+                /**
+                 * Trigger job details search on history click.
+                 * @returns {undefined}
+                 */
+                $("[id^=query_]").click(function () {
+                    $("#fragmentQueryResultSetHolder").show();
+                    query();
+                });
+
+                /**
+                 * Cancel a query. 
+                 */
+                $("#cancel-button").click(function () {
+                    cancel();
+                });
+
+                /**
+                 * Export a query to csv.
+                 */
+                $("#export-button").click(function () {
+                    $("#fragmentQueryResultSetHolder").hide();
+                    queryExport();
+                });
+
+                /**
+                 * Store a query. 
+                 */
+                $("#save-query-button").click(function () {
+                    queryModal();
+                });
+
+                /**
+                 * Save e-mail with query result. 
+                 */
+                $("#email-button").click(function () {
+                    queryEmail();
+                });
+
+                /**
+                 * Jstree Search
+                 * @returns {undefined}
+                 */
+                var timeOut = false;
+                $('#jstree-search').keyup(function () {
+                    if (timeOut) {
+                        clearTimeout(timeOut);
+                    }
+                    timeOut = setTimeout(function () {
+                        var v = $('#jstree-search').val();
+                        $('#jstree').jstree(true).search(v);
+                    }, 250);
+                });
+
+                $('#jstree').on('dblclick', '.jstree-anchor', function (e) {
+                    var instance = $.jstree.reference(this);
+                    var node = instance.get_node(this);
+                    var query = window.editor;
+                    var select = "";
+                    var target = "";
+
+                    if (node.parent !== "#") {
+                        target = node.a_attr.target;
+                        
+                        if (target === "HANA") {
+                            select = "SELECT * FROM " + node.parent + "." + '"' + node.text + '"' + " LIMIT " + /*[[${maxRows}]]*/  "10";
+                        } else if (target === "MSSQL" || target === "JTDS") {
+                            select = "SELECT TOP " + /*[[${maxRows}]]*/ "10";
+                            select = select + " * FROM " + node.parent + "." + node.text;
+                        } else {
+                            select = "SELECT * FROM " + node.parent + "." + node.text + " LIMIT " + /*[[${maxRows}]]*/  "10";
+                        }
+
+                        query.setValue(select);
+                        query.focus();
+                    }
+                });
+
+                $('#workbench_top').on('shown.bs.collapse', function () {
+                    $("#a_collapse_top").addClass('glyphicon-triangle-top').removeClass('glyphicon-triangle-bottom');
+                    $("#a_collapse_top").removeAttr("title").attr("title", "Click me to see a greater table.");
+                    $("#table").css('height', '325px');
+                });
+
+                $('#workbench_top').on('hidden.bs.collapse', function () {
+                    $("#a_collapse_top").addClass('glyphicon-triangle-bottom').removeClass('glyphicon-triangle-top');
+                    $("#a_collapse_top").removeAttr("title").attr("title", "Click me to expand workbench settings.");
+                    $("#table").css('height', '835px');
+                });
+
+                /**
+                 * Execute a query. 
+                 * @returns {undefined}
+                 */
+                function query() {
+                    var connection = $('#connection').val();
+                    var query = window.editor.getSelection();
+
+                    if (query === "") {
+                        query = window.editor.getValue() + " ";
+                    }
+
+                    if (query !== "") {
+                        if (query.includes("${")) {
+                            var url = /*[[@{/workbench/parameter/modal}]]*/ "/workbench/parameter/modal";
+
+                            $.ajax({
+                                type: "POST",
+                                url: url,
+                                data: {
+                                    connection: connection,
+                                    query: query
+                                },
+                                success: function (result) {
+                                    $("#modalHolder").html(result);
+                                    $("#modalQueryParameter").modal({backdrop: 'static'});
+                                }
+                            });
+                        } else {
+                            var url = /*[[@{/workbench/query/}]]*/ "/workbench/query/";
+
+                            $.ajax({
+                                type: "POST",
+                                url: url + connection,
+                                data: {
+                                    query: query
+                                },
+                                timeout: 1000000,
+                                success: function (result) {
+                                    $("#fragmentQueryResultSetHolder").html(result);
+                                    $('.table').DataTable(
+                                            {
+                                                "paging": false,
+                                                "info": false,
+                                                "searching": true,
+                                                "retrieve": true,
+                                                "order": [],
+                                                "columnDefs": [{
+                                                        "targets": 'no-sort',
+                                                        "orderable": false
+                                                    }
+                                                ]
+                                            });
+                                },
+                                error: function (e) {
+                                    alert("Fail loading query resultset: " + e.statusText);
+                                }
+                            });
+                        }
+                    }
+                }
+
+                /**
+                 * Cancel a query. 
+                 * @returns {undefined}
+                 */
+                function cancel() {
+                    var url = /*[[@{/workbench/query/}]]*/ "/workbench/cancel/";
+
+                    $.ajax({
+                        type: "POST",
+                        url: url,
+                        contentType: "text/html",
+                        success: function (result) {
+                            toastr.success('Cancel sent successfully');
+                        },
+                        error: function (e) {
+                            toastr.error('Cancel fail ' + e.statusText);
+                        }
+                    });
+                }
+
+                /**
+                 * Construct jsTree
+                 * @param connection
+                 */
+                function createJSTree(connection) {
+                    // Clear jsTree.
+                    $('#jstree').jstree("destroy").empty();
+
+                    var url = /*[[@{/workbench/}]]*/ "/workbench/";
+
+                    $('#jstree').jstree({
+                        'core': {
+                            'data': {
+                                "url": url + "tree/" + connection,
+                                "dataType": "json",
+                                "data": function (node) {
+                                    payload = {"catalog": "", "schema": ""};
+
+                                    if (node.a_attr) {
+                                        payload = {"catalog": node.a_attr.catalog, "schema": node.a_attr.schema};
+                                    }
+
+                                    return payload;
+                                }
+                            }
+                        },
+                        "plugins": ["sort", "wholerow", "contextmenu", "search"],
+                        "search": {
+                            "show_only_matches": true
+                        },
+                        'contextmenu': {
+                            'items': customMenu
+                        }
+                    });
+                }
+
+                /**
+                 * Refresh connection cache.
+                 */
+                function refreshCache() {
+                    var url = /*[[@{/connection/evict/}]]*/ "/connection/evict/";
+
+                    $.ajax({
+                        type: "GET",
+                        url: url + connection,
+                        contentType: "text/html",
+                        timeout: 1000000,
+                        success: function () {
+                            createJSTree(connection);
+
+                        },
+                        error: function (e) {
+                            alert("Fail refreshing connection cache: " + e.statusText);
+                        }
+                    });
+                }
+
+                /**
+                 * Right click menu on table list.
+                 * 
+                 * @param {type} node current element.
+                 * @returns {workbenchL#2.customMenu.items}
+                 */
+                function customMenu(node) {
+                    {
+                        var items = {
+                            'refresh': {
+                                'label': 'Refresh',
+                                'icon': 'glyphicon glyphicon-refresh',
+                                'title': 'Refresh connection. (Shortcut F1)',
+                                'shortcut': 112,
+                                'action': function () {
+                                    refreshCache();
+                                }
+                            },
+                            'metadata': {
+                                'label': 'Metadata',
+                                'icon': 'glyphicon glyphicon-th',
+                                'title': 'Open entity metadata. (Shortcut F2)',
+                                'shortcut': 113,
+                                'action': function () {
+                                    tableMetadataModal(node);
+                                },
+                                // catalog or schema doesn't have metadata.
+                                '_disabled': (node.a_attr.table == null || node.a_attr.table == "")
+                            }
+                        };
+                        return items;
+                    }
+                }
+
+                /**
+                 * Table metadata modal. 
+                 * 
+                 * @param {type} node
+                 * @returns {undefined}
+                 */
+                function tableMetadataModal(node) {
+                    var url = /*[[@{/connection/modal/}]]*/ "/connection/modal/";
+
+                    $.ajax({
+                        type: "GET",
+                        url: url + connection + "/table/column",
+                        data: {
+                            catalog: node.a_attr.catalog,
+                            schema: node.a_attr.schema,
+                            table: node.a_attr.table
+                        },
+                        success: function (result) {
+                            $("#modalHolder").html(result);
+                            $("#modalTableMetadata").modal({backdrop: 'static'});
+                        },
+                        error: function (e) {
+                            alert("Error getting table metadata: " + e.statusText);
+                        }
+                    });
+                }
+
+                /**
+                 * Calls modal with form to store the query. 
+                 * @returns {undefined}
+                 */
+                function queryModal() {
+                    var connection = $('#connection').val();
+                    var url = /*[[@{/query/modal/}]]*/ "/query/modal/";
+                    var query = window.editor.getValue();
+
+                    //Identify if query field is not empty.
+                    if (query.toString().trim() !== "") {
+                        $.ajax({
+                            type: "POST",
+                            url: url + connection,
+                            data: query,
+                            contentType: "text/html",
+                            timeout: 1000000,
+                            success: function (result) {
+                                $("#modalHolder").html(result);
+                                $("#modalQuery").modal({backdrop: 'static'});
+                            },
+                            error: function (e) {
+                                alert("Fail loading query resultset: " + e.statusText);
+                            }
+                        });
+                    } else {
+                        toastr.error('Query cannot be empty');
+                        window.editor.focus();
+                    }
+                }
+
+                /**
+                 * Ajax to call export for a query. 
+                 * @returns {undefined}
+                 */
+                function queryExport() {
+                    var connection = $('#connection').val();
+                    var url = /*[[@{/export/query/}]]*/ "/export/query/";
+                    var query = window.editor.getValue();
+
+                    //Identify if query field is not empty.
+                    if (query.toString().trim() !== "") {
+                        $.ajax({
+                            type: "POST",
+                            url: url + connection,
+                            data: query,
+                            contentType: "text/html",
+                            timeout: 1000000,
+                            success: function (result) {
+                                if (result !== "") {
+                                    url = /*[[@{/export/download/}]]*/ "/export/download/";
+                                    window.location.href = url + result;
+                                } else {
+                                    toastr.error('Fail exporting query :/');
+                                }
+                            },
+                            error: function (e) {
+                                toastr.error("Fail exporting query, error: " + e.statusText);
+                            }
+                        });
+                    } else {
+                        toastr.error('Query cannot be empty');
+                        window.editor.focus();
+                    }
+                }
+
+                /**
+                 * Calls modal with form to send query result in e-mail. 
+                 * @returns {undefined}
+                 */
+                function queryEmail() {
+                    var connection = $('#connection').val();
+                    var url = /*[[@{/email/modal/}]]*/ "/email/modal/";
+                    var query = window.editor.getValue();
+
+                    //Identify if query field is not empty.
+                    if (query.toString().trim() !== "") {
+                        $.ajax({
+                            type: "POST",
+                            url: url + connection,
+                            data: query,
+                            contentType: "text/html",
+                            timeout: 1000000,
+                            success: function (result) {
+                                $("#modalHolder").html(result);
+                                $("#modalEmail").modal({backdrop: 'static'});
+                                $('.selectpicker').selectpicker();
+                            },
+                            error: function (e) {
+                                alert("Fail loading e-mail modal: " + e.statusText);
+                            }
+                        });
+                    } else {
+                        toastr.error('Query cannot be empty');
+                        window.editor.focus();
+                    }
+                }
+            });
+        </script>    
+    </body>
+</html>

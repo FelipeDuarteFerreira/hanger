@@ -24,9 +24,18 @@
 package br.com.dafiti.hanger.repository;
 
 import br.com.dafiti.hanger.model.Configuration;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 
 public interface ConfigurationRepository extends CrudRepository<Configuration, Long> {
 
     Configuration findByParameter(String parameter);
+
+    /**
+     * Get database date time.
+     *
+     * @return database date time
+     */
+    @Query("select distinct now() from Configuration")
+    String now();
 }

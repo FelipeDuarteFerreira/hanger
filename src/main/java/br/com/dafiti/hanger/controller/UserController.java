@@ -26,10 +26,7 @@ package br.com.dafiti.hanger.controller;
 import java.security.Principal;
 import java.util.HashSet;
 import java.util.Map;
-
 import javax.validation.Valid;
-
-import org.apache.commons.lang3.RandomUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -45,13 +42,21 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import br.com.dafiti.hanger.exception.Message;
+import br.com.dafiti.hanger.model.AuditorData;
 import br.com.dafiti.hanger.model.Blueprint;
 import br.com.dafiti.hanger.model.Job;
+import br.com.dafiti.hanger.model.Privilege;
 import br.com.dafiti.hanger.model.User;
+import br.com.dafiti.hanger.service.AuditorService;
 import br.com.dafiti.hanger.service.JobService;
+import br.com.dafiti.hanger.service.JwtService;
 import br.com.dafiti.hanger.service.MailService;
+import br.com.dafiti.hanger.service.PrivilegeService;
 import br.com.dafiti.hanger.service.RoleService;
 import br.com.dafiti.hanger.service.UserService;
+import java.util.Date;
+import java.util.List;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  *
@@ -65,6 +70,9 @@ public class UserController {
     private final RoleService roleService;
     private final MailService mailService;
     private final JobService jobService;
+    private final PrivilegeService privilegeService;
+    private final JwtService jwtService;
+    private final AuditorService auditorService;
 
     @Autowired
     public UserController(
@@ -72,12 +80,18 @@ public class UserController {
             RoleService roleService,
             MailService mailService,
             JobService jobService,
-            SessionRegistry sessionRegistry) {
+            SessionRegistry sessionRegistry,
+            PrivilegeService privilegeService,
+            JwtService jwtService,
+            AuditorService auditorService) {
 
         this.userService = userService;
         this.roleService = roleService;
         this.mailService = mailService;
         this.jobService = jobService;
+        this.privilegeService = privilegeService;
+        this.jwtService = jwtService;
+        this.auditorService = auditorService;
     }
 
     /**
@@ -95,7 +109,7 @@ public class UserController {
     }
 
     /**
-     * Add a user.
+     * Add an user.
      *
      * @param model Model
      * @return User edit
@@ -109,7 +123,7 @@ public class UserController {
     }
 
     /**
-     * Edit a user.
+     * Edit an user.
      *
      * @param model Model
      * @param user User
@@ -126,7 +140,7 @@ public class UserController {
     }
 
     /**
-     * Save a user.
+     * Save an user.
      *
      * @param redirectAttributes
      * @param user User
@@ -177,7 +191,7 @@ public class UserController {
     }
 
     /**
-     * Delete a user.
+     * Delete an user.
      *
      * @param redirectAttributes
      * @param model
@@ -216,7 +230,7 @@ public class UserController {
     }
 
     /**
-     * Delete a user.
+     * Delete an user.
      *
      * @param redirectAttributes
      * @param nextApprover
@@ -272,12 +286,14 @@ public class UserController {
     /**
      * Recovery confirmation.
      *
+     * @param redirectAttributes
      * @param model
      * @param username
      * @return
      */
     @PostMapping("/confirmation/{username}")
     public String recoveryConfirmation(
+            RedirectAttributes redirectAttributes,
             Model model,
             @PathVariable(value = "username") String username) {
 
@@ -285,7 +301,12 @@ public class UserController {
         username = username.replace("_", ".");
         User user = userService.findByUsername(username);
 
-        if (user == null) {
+        if (user == null || !user.isEnabled()) {
+            if (user != null && !user.isEnabled()) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "The user '".concat(username).concat("' is disabled!"));
+            }
+
             model.addAttribute("user", new User());
             return "redirect:/login";
         }
@@ -311,6 +332,8 @@ public class UserController {
     }
 
     /**
+     * Indentify confirmation code sent by e-mail and redirect to change
+     * password.
      *
      * @param userConfirmation
      * @param bindingResult
@@ -384,7 +407,7 @@ public class UserController {
 
     /**
      * change the approver of jobs that have as approver an user that is
-     * supposed to be disbled and then disable the user
+     * supposed to be disbled and then disable the user.
      *
      * @param redirectAttributes
      * @param nextApprover
@@ -408,7 +431,7 @@ public class UserController {
 
         oldApprover.setEnabled(false);
         userService.save(oldApprover);
-        redirectAttributes.addFlashAttribute("successMessage", "User successful disabled!");
+        redirectAttributes.addFlashAttribute("successMessage", "User successfully disabled!");
 
         return "redirect:/user/list";
     }
@@ -427,5 +450,123 @@ public class UserController {
             @PathVariable(value = "userId") Long userId) {
 
         return this.userService.resetPassword(userId);
+    }
+
+    /**
+     * Privileges list modal.
+     *
+     * @param model Model
+     * @return Privileges modal
+     */
+    @GetMapping(path = "/modal/privileges")
+    public String privilegesListModal(Model model) {
+        model.addAttribute("privileges", privilegeService.list());
+        return "user/modalPrivileges::privileges";
+    }
+
+    /**
+     * Add user privileges.
+     *
+     * @param user User
+     * @param privilegesList
+     * @param bindingResult BindingResult
+     * @param model Model
+     * @return Subject edit
+     */
+    @PostMapping(path = "/save", params = {"partial_add_privileges"})
+    public String addPrivilege(
+            @ModelAttribute User user,
+            @RequestParam(value = "privilegesList", required = false) List<Privilege> privilegesList,
+            BindingResult bindingResult,
+            Model model) {
+
+        try {
+            privilegesList.forEach((privilege) -> {
+                user.addPrivilege(privilege);
+            });
+        } catch (Exception ex) {
+            model.addAttribute("errorMessage", new Message().getErrorMessage(ex));
+        } finally {
+            model.addAttribute("user", user);
+            model.addAttribute("roles", roleService.list());
+        }
+
+        return "user/edit";
+    }
+
+    /**
+     * Remove a privilege.
+     *
+     * @param user User
+     * @param index int
+     * @param bindingResult BindingResult
+     * @param model Model
+     * @return Subject edit
+     */
+    @PostMapping(path = "/save", params = {"partial_remove_privilege"})
+    public String removeSlackChannel(
+            @ModelAttribute User user,
+            @RequestParam("partial_remove_privilege") int index,
+            BindingResult bindingResult,
+            Model model) {
+
+        user.getPrivileges().remove(index);
+        model.addAttribute("user", user);
+        model.addAttribute("roles", roleService.list());
+
+        return "user/edit";
+    }
+
+    /**
+     * Api token modal.
+     *
+     * @param model Model
+     * @param principal Principal
+     * @return Redirect to API token modal.
+     */
+    @GetMapping(path = "/modal/apiToken/")
+    public String APITokenModal(Model model, Principal principal) {
+        if (principal != null) {
+            User user = userService.findByUsername(principal.getName());
+
+            if (user != null) {
+                if (user.getTokenCreatedAt() == null) {
+                    user.setTokenCreatedAt(new Date());
+                    userService.save(user);
+                }
+
+                model.addAttribute("user", user);
+                model.addAttribute("token", jwtService.generateToken(user.getId().toString(), user.getTokenCreatedAt()));
+
+                return "user/modalAPIToken::apiToken";
+            }
+        }
+
+        return "user/list";
+    }
+
+    /**
+     * Refresh user api token.
+     *
+     * @param principal Principal
+     * @return Redirect to user list.
+     */
+    @PostMapping(path = "/refresh/apiToken")
+    public String refreshAPIToken(Principal principal) {
+
+        if (principal != null) {
+            User user = userService.findByUsername(principal.getName());
+
+            if (user != null) {
+                auditorService.publish("API_REFRESH_TOKEN",
+                        new AuditorData()
+                                .addData("name", user.getUsername())
+                                .getData());
+
+                user.setTokenCreatedAt(new Date());
+                userService.save(user);
+            }
+        }
+        return "redirect:/user/list";
     }
 }

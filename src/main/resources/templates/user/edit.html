@@ -7,7 +7,6 @@
     </head>
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
-
         <script th:inline="javascript">
             //<![CDATA[
             $(document).ready(
@@ -90,7 +89,6 @@
         </script>
 
         <div class="container-fluid main-content">
-            <h3 class="page-title">User</h3>
             <div>
                 <form class="form-horizontal" 
                       th:object="${user}"                      
@@ -199,22 +197,60 @@
                         </div>
                     </div>
 
-                    <!--Enabled-->
+                    <div th:if="${not #lists.isEmpty(user.privileges)}">
+                        <fieldset>
+                            <legend>
+                                Privileges
+                            </legend>
+                        </fieldset> 
+
+                        <table class="table">
+                            <tr>
+                                <th style="width:5%">#</th>
+                                <th style="width:72.5%">Privilege</th>
+                                <th></th>
+                            </tr>
+                            <tr th:each="privileges, privilegeStat : ${user.privileges}">
+                                <input type="hidden" th:field="*{privileges[__${privilegeStat.index}__]}"/> 
+                                <td> 
+                                    <span th:text="*{privileges[__${privilegeStat.index}__].id}"></span>
+                                </td>
+                                <td>
+                                    <span th:text="*{privileges[__${privilegeStat.index}__].name}"></span>
+                                </td>
+                                <td>
+                                    <button type="submit" 
+                                            name="partial_remove_privilege" 
+                                            th:value="${privilegeStat.index}" 
+                                            class="btn btn-delete btn-xs"
+                                            th:classappend="${#authorization.expression('hasRole(''HERO'')') ? '':'dispDef'}">
+                                        <span class="glyphicon glyphicon-trash" 
+                                              aria-hidden="true"></span> Remove
+                                    </button>
+                                </td>
+                            </tr>
+                        </table>
+                    </div> 
+
+                    <!--Enabled-->                    
+                    <fieldset>
+                        <legend>
+                            Options
+                        </legend>
+                    </fieldset>   
+
                     <div class="form-group">
                         <div class="col-sm-10">
-                            <div class="form-check pull-right">
-                                <input  
-                                    id="userEnabled" 
-                                    name="userEnabled"
-                                    type="checkbox" 
-                                    data-toggle="toggle" 
-                                    data-on="Enabled" 
-                                    data-off="Disabled" 
-                                    data-size="small"
-                                    data-onstyle="default" 
-                                    th:field="*{enabled}" 
-                                    th:checked="*{enabled}"
-                                    th:disabled="*{!#authorization.expression('hasRole(''HERO'')') or username == #httpServletRequest.remoteUser}"/>
+                            <div class="btn-group btn-space">
+                                <label>
+                                    <input  
+                                        id="userEnabled" 
+                                        name="userEnabled"
+                                        type="checkbox" 
+                                        th:field="*{enabled}" 
+                                        th:checked="*{enabled}"
+                                        th:disabled="*{!#authorization.expression('hasRole(''HERO'')') or username == #httpServletRequest.remoteUser}"/> Enabled
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -224,29 +260,60 @@
                     <div th:if="*{#authorization.expression('hasRole(''HERO'')') or username == #httpServletRequest.remoteUser}">
                         <div class="form-group">
                             <div class="col-sm-10">
-                                <button type="submit" class="btn btn-generic btn-sm">
-                                    <span class="glyphicon glyphicon-save" aria-hidden="true"></span>
+                                <button type="submit" 
+                                        class="btn btn-generic btn-sm">
+                                    <span class="glyphicon glyphicon-save" 
+                                          aria-hidden="true"></span>
                                     Save
+                                </button>  
+
+                                <button id="modal_wait" 
+                                        type="button" 
+                                        class="btn btn-generic btn-sm btn-space" 
+                                        style="display:none;">
+                                    <img th:src="@{'/images/ajax-loader.gif'}"></img>
                                 </button>
 
                                 <button 
                                     type="button" 
                                     class="btn btn-generic btn-sm pull-right btn-space"
-                                    title="This button will change the user password!"
-                                    th:attr="onclick='modalResetPassword(' + *{id} + ',\'' + *{username} + '\');'"
+                                    th:attr="onclick='modalPassword(' + *{id} + ',\'' + *{username} + '\');'"
                                     th:disabled="*{id == null}">
 
                                     <span 
                                         class="glyphicon glyphicon-lock" 
-                                        aria-hidden="true">
-                                    </span>
+                                        aria-hidden="true"></span>
                                     Reset password
-                                </button>
+                                </button>                            
+
+                                <button type="button" 
+                                        class="btn btn-generic btn-sm pull-right"
+                                        th:id="modal_add_privileges"
+                                        th:classappend="${#authorization.expression('hasRole(''HERO'')') ? '':'dispDef'}"
+                                        th:disabled="*{username == #httpServletRequest.remoteUser}">
+                                    <span class="glyphicon glyphicon-equalizer" 
+                                          aria-hidden="true"></span>
+                                    Privileges
+                                </button>                                
                             </div>
                         </div>
-                    </div>                    
+                    </div>                   
 
                     <hr/>
+
+                    <!-- Identifies if user is authenticated -->
+                    <div sec:authorize="isAuthenticated()">
+                        <!-- Identifies if user has API access -->
+                        <div sec:authorize="hasRole('HERO') or hasPermission('API','read')">                                                    
+                            <a href="#" 
+                               title="Get API Token" 
+                               th:id="modal_api_token"
+                               data-toggle="tooltip" 
+                               data-placement="top">
+                                <span class="glyphicon glyphicon-log-in"></span> API Token
+                            </a>                            
+                        </div>
+                    </div>
 
                     <div th:if="*{ updatedAt != null }">
                         <!--Tracker-->
@@ -256,9 +323,12 @@
                             </div>
                         </div>
                     </div>
+
+                    <!--Modal--> 
+                    <div id="modalHolder"></div>
                 </form>
             </div>
-        </div>
+        </div>        
 
         <!-- INÍCIO MODAL CHANGE PASSWORD -->
         <div class="modal fade" id="modal_changepassword" tabindex="-1" role="dialog" aria-labelledby="modal_changepassword">
@@ -266,10 +336,10 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                        <h4 class="modal-title" id="modalParentLabel"> Change password for user: <span style="font-weight:bold" id="modal_username" ></span></h4>
+                        <h4 class="modal-title" id="modalParentLabel">Reset Passwords</h4>
                     </div>
                     <div class="modal-body">
-                        <span>Do you really want the reset user password ?</span>
+                        <span>Are you sure you want to reset password?</span>
                     </div>
                     <div class="modal-footer">
                         <button href="" id="btn_change_password_" name="btn_change_password_" class="col-xs-5 col-sm-5 col-md-5 btn btn-default btn-sm">
@@ -284,21 +354,42 @@
         </div>
         <!-- FIM MODAL CHANGE PASSWORD -->
 
-        <script type="text/javascript">
-            // This function call modal password.
-            function modalResetPassword(id, username) {
-                document.getElementsByName("btn_change_password_")[0].value = id;
-                document.getElementsByName("btn_change_password_")[0].id = "btn_change_password_" + id;
-                document.getElementById("modal_username").innerText = username;
-                $("#modal_changepassword").modal('show');
-            }
-
+        <script th:inline="javascript" type="text/javascript">
             // Reset user password.
-            $(function () {
+            $(document).ready(function () {
+                /**
+                 * Show wait panel.
+                 * @returns {undefined}
+                 */
+                $(document).ajaxStart(function () {
+                    $("#modal_wait").css("display", "inline");
+                    $("[id^=modal_add_privileges]").prop("disabled", true);
+                });
+
+                /**
+                 * Hide wait panel.
+                 * @returns {undefined}
+                 */
+                $(document).ajaxComplete(function () {
+                    $("#modal_wait").css("display", "none");
+                    $("[id^=modal_add_privileges]").prop("disabled", false);
+                });
+
                 $("[id^=btn_change_password_]").click(function () {
                     $("#modal_changepassword").modal('hide');
                     var url = /*[[@{/user/resetpassword/}]]*/ "/user/resetpassword/";
                     var user = $(this).val();
+
+                    toastr.options = {
+                        "closeButton": true,
+                        "progressBar": true,
+                        "positionClass": "toast-top-right",
+                        "timeOut": 2500,
+                        "showEasing": "swing",
+                        "hideEasing": "linear",
+                        "showMethod": "fadeIn",
+                        "hideMethod": "fadeOut"
+                    }
 
                     $.ajax({
                         type: "GET",
@@ -307,19 +398,68 @@
                         success: function (result) {
                             // Identify the operation status. 
                             if (result != "") {
-                                alert("Password successfully changed, an email was sent to the user with the new password!");
+                                toastr.success('Password successfully changed, an e-mail was sent to the user with the new password!');
 
                             } else {
-                                alert("Error trying to reset password.");
+                                toastr.error('Error trying to reset password.');
 
                             }
                         },
                         error: function (e) {
-                            alert("Error trying to reset password.");
+                            toastr.error('Error trying to reset password.');
                         }
                     });
                 });
-            })
+
+                /**
+                 * Show slack channel modal. 
+                 * @returns {undefined}
+                 */
+                $("#modal_add_privileges").click(function () {
+                    var url = /*[[@{/user/modal/privileges/}]]*/ "/user/modal/privileges/";
+
+                    $.ajax({
+                        type: "GET",
+                        url: url,
+                        timeout: 30000,
+                        success: function (result) {
+                            $("#modalHolder").html(result);
+                            $("#modalPrivileges").modal({backdrop: 'static', keyboard: true});
+                            $('.selectpicker').selectpicker();
+                        },
+                        error: function (e) {
+                            alert("Error loading privileges: " + e);
+                        }
+                    });
+                });
+            });
+
+            // This function call modal password.
+            function modalPassword(id, username) {
+                document.getElementsByName("btn_change_password_")[0].value = id;
+                document.getElementsByName("btn_change_password_")[0].id = "btn_change_password_" + id;
+                $("#modal_changepassword").modal('show');
+            }
+
+            /**
+             * Show api token modal. 
+             * @returns {undefined}
+             */
+            $("#modal_api_token").click(function () {
+                var url = /*[[@{/user/modal/apiToken/}]]*/ "/user/modal/apiToken/";
+
+                $.ajax({
+                    type: "GET",
+                    url: url,
+                    success: function (result) {
+                        $("#modalHolder").html(result);
+                        $("#modalAPIToken").modal({backdrop: 'static', keyboard: false});
+                    },
+                    error: function (e) {
+                        alert("Error getting api token: " + e.responseText);
+                    }
+                });
+            });
         </script>
     </body>
 </html>

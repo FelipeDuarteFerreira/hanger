@@ -24,7 +24,6 @@
 package br.com.dafiti.hanger.controller;
 
 import javax.servlet.http.HttpServletRequest;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -33,10 +32,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
-
 import br.com.dafiti.hanger.model.Configuration;
 import br.com.dafiti.hanger.service.ConfigurationGroupService;
 import br.com.dafiti.hanger.service.ConfigurationService;
+import br.com.dafiti.hanger.service.ServerService;
 
 /**
  *
@@ -48,31 +47,35 @@ public class ConfigurationController {
 
     private final ConfigurationService configurationService;
     private final ConfigurationGroupService configurationGroupService;
+    private final ServerService serverService;
 
     @Autowired
-    public ConfigurationController(ConfigurationService configurationService,
-            ConfigurationGroupService configurationGroupService) {
+    public ConfigurationController(
+            ConfigurationService configurationService,
+            ConfigurationGroupService configurationGroupService,
+            ServerService serverService) {
 
         this.configurationService = configurationService;
         this.configurationGroupService = configurationGroupService;
+        this.serverService = serverService;
     }
-   
-    /**
-	 * Save the configuration came by ajax.
-	 * 
-	 * @param value value
-	 * @param request request
-	 * @param parameter Parameter
-	 * @return
-	 */
-	@PostMapping("/save/{parameter}")
-	@ResponseBody
-	public boolean save(
-			@RequestBody String value, 
-			HttpServletRequest request,
-			@PathVariable(value = "parameter") String parameter) {
 
-		Configuration configuration = this.configurationService.findByParameter(parameter);
+    /**
+     * Save configuration.
+     *
+     * @param value value
+     * @param request request
+     * @param parameter Parameter
+     * @return Identifies if the configuration was saved successfully.
+     */
+    @PostMapping("/save/{parameter}")
+    @ResponseBody
+    public boolean save(
+            @RequestBody String value,
+            HttpServletRequest request,
+            @PathVariable(value = "parameter") String parameter) {
+
+        Configuration configuration = this.configurationService.findByParameter(parameter);
         boolean result = true;
 
         if (configuration != null && !value.isEmpty()) {
@@ -87,10 +90,10 @@ public class ConfigurationController {
         }
 
         return result;
-	}
+    }
 
     /**
-     * Edit configurations.
+     * Edit configuration.
      *
      * @param model Model
      * @return Configuration edit template.
@@ -98,6 +101,9 @@ public class ConfigurationController {
     @RequestMapping(path = "/edit")
     public String edit(Model model) {
         model.addAttribute("configurationGroup", configurationGroupService.list());
+        model.addAttribute("servers", serverService.list());
+        model.addAttribute("databaseTime", configurationService.getDataBaseTime());
+        model.addAttribute("serverTime", configurationService.getServerTime());
         return "configuration/edit";
     }
 }

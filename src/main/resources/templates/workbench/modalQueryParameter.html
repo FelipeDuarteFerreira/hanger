@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <!--OPTION FRAGMENT BEGIN-->
+            <div class="modal fade" id="modalQueryParameter" tabindex="-1" role="dialog" aria-labelledby="modalQueryParameterLabel" th:fragment="parameter">
+                <div class="modal-dialog modal-lg" role="document">                    
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                            <h4 class="modal-title" id="modalQueryParameterLabel">
+                                Parameter
+                            </h4>
+                        </div>
+
+                        <form id="parameters" class="form-horizontal" >
+                            <div class="modal-body">
+
+                                <!--Parameters-->
+
+                                <div th:each="parameter : ${parameters}">                                
+                                    <label th:text="${parameter.key}"></label>
+                                    <div class="form-group">                                        
+                                        <div class="col-sm-12">
+                                            <input 
+                                                class="form-control"
+                                                th:type="${parameter.value.get('type')}" 
+                                                th:name="${parameter.key}" 
+                                                th:id="${parameter.key}" 
+                                                th:value="${parameter.value.get('default')}"
+                                                maxlength="255"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div class="modal-footer">                                
+                            <button 
+                                type="button" 
+                                class="btn btn-generic btn-sm" 
+                                data-dismiss="modal">
+
+                                <span aria-hidden="true"></span> Close 
+                            </button>
+                            <button 
+                                id="play-parameter-button"
+                                class="btn btn-generic btn-sm" 
+                                title="Add selected fields to query">   
+
+                                <span class="glyphicon glyphicon-play" aria-hidden="true"></span> Play 
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <script th:inline="javascript">
+                    $(document).ready(function () {
+                        /**
+                         * Set header CSRF Token.
+                         * @returns {undefined}
+                         */
+                        $.ajaxSetup({
+                            headers: {'X-CSRF-Token': $('#_csrf').attr('content')}
+                        });
+
+                        /**
+                         * Define ajax start behavior. 
+                         * @returns {undefined}
+                         */
+                        $(document).ajaxStart(function () {
+                            $("#wait").css("display", "inline");
+                            $("#cancel-button").css("display", "inline");
+                            $("#query").prop("disabled", true);
+                            $("#play-button").prop("disabled", true);
+                            $('#modalQueryParameter').modal('hide');
+                        });
+
+                        /**
+                         * Define ajax complete behavior. 
+                         * @returns {undefined}
+                         */
+                        $(document).ajaxComplete(function () {
+                            $("#wait").css("display", "none");
+                            $("#cancel-button").css("display", "none");
+                            $("#query").prop("disabled", false);
+                            $("#play-button").prop("disabled", false);
+                        });
+
+                        /**
+                         * Defines checkbox default values as true or false.
+                         */
+                        $(":checkbox").on('change', function () {
+                            if ($(this).is(':checked')) {
+                                $(this).attr('value', 'true');
+                            } else {
+                                $(this).attr('value', 'false');
+                            }
+                        });
+
+                        /**
+                         * Play a query. 
+                         */
+                        $("#play-parameter-button").click(function () {
+                            var url = /*[[@{/workbench/query/}]]*/ "/workbench/query/";
+                            var connection = /*[[${connection}]]*/ '';
+                            var query = /*[[${query}]]*/ '';
+                            var parameters = JSON.stringify($('#parameters').serializeArray());
+
+                            $("#fragmentQueryResultSetHolder").show();
+
+                            $.ajax({
+                                type: "POST",
+                                url: url + connection,
+                                data: {
+                                    parameters: parameters,
+                                    query: query
+                                },
+                                timeout: 1000000,
+                                success: function (result) {
+                                    $("#fragmentQueryResultSetHolder").html(result);
+                                    $('.table').DataTable(
+                                            {
+                                                "paging": false,
+                                                "info": false,
+                                                "searching": true,
+                                                "retrieve": true,
+                                                "order": [],
+                                                "columnDefs": [{
+                                                        "targets": 'no-sort',
+                                                        "orderable": false
+                                                    }
+                                                ]
+                                            });
+                                }
+                            });
+                        });
+                    });
+                </script>  
+            </div>
+            <!--OPTION FRAGMENT END-->
+        </div>
+    </body>
+</html>

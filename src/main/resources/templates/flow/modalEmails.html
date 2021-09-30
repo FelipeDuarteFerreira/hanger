@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container">
+            <!-- modal emails begin-->
+            <div class="modal fade" id="modalEmails" tabindex="-1" role="dialog" aria-labelledby="modalEmailsLabel" th:fragment="emails">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                            <h4 class="modal-title" id="modalTestConnectionLabel">E-mails</h4>
+                        </div>
+                        <div class="modal-body">
+                            <table class="table">
+                                <tr>
+                                    <th style="width:5%">#</th>
+                                    <th style="width:50%">E-mail</th>
+                                    <th style="width:32.5%">Owner</th>
+                                </tr>
+                                <tr th:each="email : ${job.email}">                         
+                                    <td> 
+                                        <span th:text="*{email.id}"></span>
+                                    </td>
+                                    <td>
+                                        <a class="link" 
+                                           th:text="*{email.subject}" 
+                                           th:href="@{'/email/view/' + *{email.id}}" 
+                                           target="_blank"></a>  
+                                    </td>
+                                    <td>
+                                        <span th:text="*{email.user.username}"></span>
+                                    </td> 
+
+                                </tr>
+                            </table>
+                            <div class="modal-footer">                                
+                                <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+                                    <span aria-hidden="true"></span> Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- modal warning end-->
+        </div>
+    </body>
+</html>

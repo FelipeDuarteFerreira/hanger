@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>        
+        <div class="container">
+            <!--Fragment-->
+            <div th:fragment="jobStatus(jobDetail)">
+                <th:block th:switch="${jobDetail.status}">
+                    <!--WAITING-->                                            
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).WAITING}" class="label label-neutral" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).RESTRICTED}" class="label label-neutral" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).DISABLED}" class="label label-neutral" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+
+                    <!--SUCCESS-->
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).PARTIAL}" class="label label-success" th:attr="alt=${jobDetail.status}" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).SUCCESS}" class="label label-success" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).UNSTABLE}" class="label label-success" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).APPROVED}" class="label label-success" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+
+                    <!--RUNNING-->
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).REBUILD}" class="label label-primary" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).RUNNING}" class="label label-primary" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).CHECKUP}" class="label label-primary" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).QUEUED}" class="label label-primary" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+
+                    <!--FAILURE-->
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).UNHEALTHY}" class="label label-danger" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).BLOCKED}" class="label label-danger" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).FAILURE}" class="label label-danger" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).ABORTED}" class="label label-danger" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).DISAPPROVED}" class="label label-danger" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                    <span th:case="${T(br.com.dafiti.hanger.option.Status).ERROR}" class="label label-danger" th:attr="alt=${ jobDetail.status }" th:title="${jobDetail.status}" th:text="${jobDetail.status}"></span>
+                </th:block>
+            </div>
+        </div>    	
+    </body>
+</html>

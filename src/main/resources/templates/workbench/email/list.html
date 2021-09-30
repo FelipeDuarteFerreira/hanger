@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <div th:if="${ errorMessage != null }" class="form-group">
+                <div class="alert alert-danger" role="alert">
+                    <span th:text="${errorMessage}"></span>
+                </div>  
+            </div>
+
+
+            <table id="table_paginated" class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="width:3%">#</th>
+                        <th>Subject</th>
+                        <th style="width:12%">Connection</th>
+                        <th style="width:12%">Owner</th>
+                        <th style="width:1%" class="no-sort"></th>
+                        <th style="width:1%" class="no-sort"></th>
+                        <th style="width:1%" class="no-sort"></th>
+                        <th style="width:1%" class="no-sort"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="query-row" th:each="workbenchEmail : ${workbenchEmailList}">
+                        <td th:text="${workbenchEmail.id}">#</td>
+                        <td>
+                            <button 
+                                class="btn btn-link btn-sm hanger-no-border "
+                                th:text="${workbenchEmail.subject}"
+                                title="Show e-mail details." 
+                                th:id="'modal_email_detail_' + ${workbenchEmail.id}" 
+                                th:value="${workbenchEmail.id}">
+                            </button>
+                        </td>
+                        <td th:text="${workbenchEmail.connection.name}">Connection</td>
+                        <td th:text="${workbenchEmail.user.username}">Owner</td>  
+                        <td>
+                            <button 
+                                type="button" 
+                                class="btn btn-generic btn-xs btn-send" 
+                                th:id="'send_' + ${workbenchEmail.id}" 
+                                th:value="${workbenchEmail.id}">
+                                <span class="glyphicon glyphicon-envelope" aria-hidden="true"></span> 
+                                Send
+                            </button>
+                        </td>
+                        <td>
+                            <a th:href="@{'/email/view/' + ${workbenchEmail.id}}" class="btn btn-generic btn-xs">
+                                <span class="glyphicon glyphicon-unchecked" aria-hidden="true"></span> See
+                            </a>
+                        </td>
+                        <td>
+                            <div th:if="${#authorization.expression('hasRole(''HERO'')') or workbenchEmail.user.username == #httpServletRequest.remoteUser}">
+                                <a th:href="@{'/email/edit/' + ${workbenchEmail.id}}" class="btn btn-generic btn-xs">
+                                    <span class="glyphicon glyphicon-edit" aria-hidden="true"></span> Edit
+                                </a>
+                            </div>
+                        </td>
+                        <td>
+                            <div th:if="${#authorization.expression('hasRole(''HERO'')') or workbenchEmail.user.username == #httpServletRequest.remoteUser}">
+                                <a class="btn btn-xs btn-delete" 
+                                   data-toggle="modal" 
+                                   th:attr="data-target='#'+${workbenchEmail.id}" 
+                                   href="">
+                                    <span 
+                                        class="glyphicon glyphicon-trash" 
+                                        aria-hidden="true"></span> 
+                                    Delete
+                                </a>
+                            </div>
+
+                            <!-- Model delete -->
+                            <div class="modal fade" 
+                                 th:id="${workbenchEmail.id}" 
+                                 tabindex="-1" role="dialog" 
+                                 aria-labelledby="modalDelete">
+                                <div class="modal-dialog" role="document">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <button type="button" 
+                                                    class="close" 
+                                                    data-dismiss="modal" 
+                                                    aria-label="Close">
+                                                <span aria-hidden="true">&times;</span>
+                                            </button>
+                                            <h4 class="modal-title" 
+                                                id="modalParentLabel">Delete</h4>
+                                        </div>
+                                        <div class="modal-body">
+                                            <span th:inline="text">Are you sure you want to delete "[[${workbenchEmail.subject}]]"?</span>
+                                        </div>
+                                        <div class="modal-footer"> 
+                                            <a th:href="@{'/email/delete/' + ${workbenchEmail.id}}" 
+                                               class="col-xs-5 col-sm-5 col-md-5 btn btn-default btn-sm">
+                                                Yes
+                                            </a>
+                                            <a class="col-xs-5 col-sm-5 col-md-5 btn btn-default btn-sm" 
+                                               data-dismiss="modal" 
+                                               aria-label="Close">
+                                                No
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <hr/>
+
+            <a th:href="@{'/email/add/'}" class="btn btn-link btn-sm">
+                <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add e-mail
+            </a>
+
+            <a th:href="@{'/workbench/studio/'}" class="btn btn-link btn-sm">
+                <span class="glyphicon glyphicon-play" aria-hidden="true"></span> Open workbench
+            </a>
+
+            <!--AJAX Parent modal --> 
+            <div id="modalHolder"></div>
+
+            <center>
+                <button id="modal_wait" type="button" class="btn btn-default btn-sm" style="display:none;">
+                    <img th:src="@{'/images/ajax-loader.gif'}"></img>
+                </button>
+            </center>
+        </div>
+        <script th:inline="javascript">
+            $(document).ready(function () {
+
+                /**
+                 * Set header CSRF Token.
+                 * @returns {undefined}
+                 */
+                $.ajaxSetup({
+                    headers: {'X-CSRF-Token': $('#_csrf').attr('content')}
+                });
+
+                $(".btn-edit").click(function () {
+                    var url = /*[[@{/email/modal/edit/}]]*/ "/email/modal/edit/";
+                    var id = $(this).val();
+
+                    $.ajax({
+                        type: "POST",
+                        url: url + id,
+                        contentType: "text/html",
+                        timeout: 1000000,
+                        success: function (result) {
+                            $("#modalHolder").html(result);
+                            $("#modalEmail").modal({
+                                backdrop: 'static'
+                            });
+                            $('.selectpicker').selectpicker();
+                        },
+                        error: function (e) {
+                            alert("Fail loading query resultset: "
+                                    + e.statusText);
+                        }
+                    });
+                });
+
+                $(".btn-send").click(function () {
+                    var url = /*[[@{/email/send/}]]*/ "/email/send/";
+                    var btnSend = $(this);
+                    var id = btnSend.val();
+
+                    $.ajax({
+                        type: "GET",
+                        url: url + id,
+                        timeout: 1000000,
+                        beforeSend: function () {
+                            btnSend.prop("disabled", true);
+                            toastr.info('Sending ...');
+                        },
+                        success: function (result) {
+                            if (result) {
+                                toastr.success('Email sent successfully!');
+                            } else {
+                                toastr.error('Error sending email');
+                            }
+
+                            btnSend.prop("disabled", false);
+                        },
+                        error: function (e) {
+                            alert("Fail loading query resultset: "
+                                    + e.statusText);
+                            btnSend.prop("disabled", false);
+                        }
+                    });
+                });
+
+                /**
+                 * Show e-mail details modal. 
+                 * @returns {undefined}
+                 */
+                $("[id^=modal_email_detail_]").click(function () {
+                    var url = /*[[@{/email/modal/detail/}]]*/ "/email/modal/detail/";
+                    var email = $(this).val();
+
+                    $.ajax({
+                        type: "GET",
+                        url: url + email,
+                        success: function (result) {
+                            $("#modalHolder").html(result);
+                            $("#modalJobDetails").modal({backdrop: 'static', keyboard: false});
+                        },
+                        error: function (e) {
+                            alert("Error loading e-mail details: " + e);
+                        }
+                    });
+                });
+            });
+        </script>
+    </body>
+</html> 

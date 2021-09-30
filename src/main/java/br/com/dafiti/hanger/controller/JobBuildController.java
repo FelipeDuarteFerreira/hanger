@@ -24,21 +24,30 @@
 package br.com.dafiti.hanger.controller;
 
 import br.com.dafiti.hanger.model.Job;
+import br.com.dafiti.hanger.model.JobBuildGanttFilter;
+import br.com.dafiti.hanger.model.JobBuildMetric;
 import br.com.dafiti.hanger.model.JobBuildMetricFilter;
 import br.com.dafiti.hanger.option.Phase;
+import br.com.dafiti.hanger.service.ConfigurationService;
 import br.com.dafiti.hanger.service.JobBuildGraphService;
 import br.com.dafiti.hanger.service.JobService;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Map;
+import java.util.stream.Collectors;
+import org.joda.time.LocalDate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -51,119 +60,175 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @RequestMapping("/build")
 public class JobBuildController {
 
-    private final JobBuildGraphService jobBuildGraphService;
     private final JobService jobService;
+    private final JobBuildGraphService jobBuildGraphService;
+    private final ConfigurationService configurationService;
 
     @Autowired
     public JobBuildController(
             JobBuildGraphService jobBuildGraphService,
-            JobService jobService) {
+            JobService jobService,
+            ConfigurationService configurationService) {
 
         this.jobBuildGraphService = jobBuildGraphService;
         this.jobService = jobService;
+        this.configurationService = configurationService;
     }
 
     /**
-     * Show build heatmaps.
+     * Build heatmap.
      *
      * @param model Model
      * @return Job build heatmap
      */
     @GetMapping(path = {"/heatmap", "/heatmap/filtered"})
     public String heatmap(Model model) {
-        model.addAttribute("filter", new JobBuildMetricFilter(Phase.STARTED, new Date(), new Date()));
-        model.addAttribute("detail", jobBuildGraphService.getJobBuildDetail(Phase.STARTED, new Date(), new Date()));
-        model.addAttribute("total", jobBuildGraphService.getJobBuildTotal(Phase.STARTED, new Date(), new Date()));
+        model.addAttribute("filter",
+                new JobBuildMetricFilter(
+                        Phase.STARTED,
+                        new Date(),
+                        new Date()
+                )
+        );
+
+        model.addAttribute("detail",
+                jobBuildGraphService.getJobBuildDetail(
+                        Phase.STARTED,
+                        new Date(),
+                        new Date()
+                )
+        );
+
+        model.addAttribute("total",
+                jobBuildGraphService.getJobBuildTotal(
+                        Phase.STARTED,
+                        new Date(),
+                        new Date()
+                )
+        );
+
         return "build/heatmap";
     }
 
     /**
-     * Apply build heatmap filter.
+     * Build heatmap filtered.
      *
      * @param model Model
-     * @param from Date from
-     * @param to Date to
+     * @param dateFrom Date from
+     * @param dateTo Date to
      * @param phase Phase
      * @return Job build heatmap
      */
     @PostMapping(path = "/heatmap/filtered")
     public String heatmapFilter(
             @RequestParam("phase") Phase phase,
-            @RequestParam("dateFrom") String from,
-            @RequestParam("dateTo") String to,
+            @RequestParam("dateFrom") @DateTimeFormat(pattern = "yyyy-MM-dd") Date dateFrom,
+            @RequestParam("dateTo") @DateTimeFormat(pattern = "yyyy-MM-dd") Date dateTo,
             Model model) {
 
-        Date dateFrom = new Date();
-        Date dateTo = new Date();
+        model.addAttribute("filter",
+                new JobBuildMetricFilter(
+                        phase,
+                        dateFrom,
+                        dateTo
+                )
+        );
 
-        try {
-            dateFrom = new SimpleDateFormat("yyyy-MM-dd").parse(from);
-            dateTo = new SimpleDateFormat("yyyy-MM-dd").parse(to);
-        } catch (ParseException ex) {
-            Logger.getLogger(JobBuildController.class.getName()).log(Level.SEVERE, "Fail parsing date!", ex);
-        }
+        model.addAttribute("detail",
+                jobBuildGraphService.getJobBuildDetail(
+                        phase,
+                        dateFrom,
+                        dateTo
+                )
+        );
 
-        model.addAttribute("filter", new JobBuildMetricFilter(phase, dateFrom, dateTo));
-        model.addAttribute("detail", jobBuildGraphService.getJobBuildDetail(phase, dateFrom, dateTo));
-        model.addAttribute("total", jobBuildGraphService.getJobBuildTotal(phase, dateFrom, dateTo));
+        model.addAttribute("total",
+                jobBuildGraphService.getJobBuildTotal(
+                        phase,
+                        dateFrom,
+                        dateTo
+                )
+        );
+
         return "build/heatmap";
     }
 
     /**
-     * Show build gantt.
+     * Build gantt.
      *
      * @param model Model
      * @return Job build gantt
      */
     @GetMapping({"/gantt"})
     public String gantt(Model model) {
-        model.addAttribute("filter", new JobBuildMetricFilter(Phase.STARTED, new Date(), new Date()));
-        model.addAttribute("jobs", "");
-        model.addAttribute("chart", "");
+        model.addAttribute("filter",
+                new JobBuildMetricFilter(
+                        Phase.STARTED,
+                        new Date(),
+                        new Date()
+                )
+        );
+        model.addAttribute("jobs", jobService.listFromCache());
         return "build/gantt";
     }
 
     /**
-     * build a modal bootstrap object with a list of jobs to select in the gantt
-     * chart filter
+     * Build gantt date in a DHTMLXGantt fashion.
      *
-     * @param model
-     * @return
+     * @param filter
+     * @param model Model
+     * @return Gantt data in a DHTMLXGantt fashion.
      */
-    @GetMapping({"/gantt/list"})
-    public String loadJobListModal(Model model) {
-        model.addAttribute("jobs", jobService.listFromCache());
-        return "build/modalJobList::job";
+    @ResponseBody
+    @PostMapping(path = "/gantt/filtered", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, List> ganttFilter(
+            @RequestBody JobBuildGanttFilter filter,
+            Model model) {
+
+        Map<String, List> data = new HashMap<>();
+        data.put("data",
+                jobBuildGraphService.getDHTMLXGanttData(
+                        filter.getJobs(),
+                        filter.getFrom(),
+                        filter.getTo()
+                )
+        );
+
+        return data;
     }
 
     /**
-     * Apply the filter to select data and return an js array to build gantt
-     * chart with ajax.
+     * Build history modal.
      *
-     * @param from Date from
-     * @param jobs Job list
-     * @param sliderHour
+     * @param job Job
      * @param model Model
-     * @return Build heatmap template
+     * @return Build history modal
      */
-    @GetMapping("/gantt/filtered")
-    @ResponseBody
-    public String ganttFilter(
-            @RequestParam("dateFrom") String from,
-            @RequestParam("slider_hour") String sliderHour,
-            @RequestParam(value = "jobs", required = false) List<Job> jobs,
+    @GetMapping({"/history/{id}"})
+    public String history(
+            @PathVariable(value = "id") Job job,
             Model model) {
 
-        Date dateFrom = new Date();
+        //Identifies the retention period. 
+        String retentionPeriod = configurationService
+                .findByParameter("LOG_RETENTION_PERIOD")
+                .getValue();
 
-        try {
-            dateFrom = new SimpleDateFormat("yyyy-MM-dd").parse(from);
-        } catch (ParseException ex) {
-            Logger.getLogger(JobBuildController.class.getName()).log(Level.SEVERE, "Fail parsing date!", ex);
-        }
-        int hourFrom = Integer.parseInt(sliderHour.split(",")[0]);
-        int hourTo = Integer.parseInt(sliderHour.split(",")[1]);
+        model.addAttribute("job", job);
+        model.addAttribute("history",
+                jobBuildGraphService.findBuildHistory(
+                        Arrays.asList(job),
+                        LocalDate
+                                .now()
+                                .minusDays(Integer.valueOf(retentionPeriod))
+                                .toDate(),
+                        new Date()
+                ).stream()
+                        .sorted(Comparator.comparing(JobBuildMetric::getStartDate).reversed())
+                        .limit(Integer.valueOf(retentionPeriod))
+                        .collect(Collectors.toList())
+        );
 
-        return jobBuildGraphService.getGanttData(jobs, dateFrom, dateFrom, hourFrom, hourTo);
+        return "build/modalBuildHistory::history";
     }
 }

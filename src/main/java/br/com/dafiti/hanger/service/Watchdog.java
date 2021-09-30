@@ -23,20 +23,21 @@
  */
 package br.com.dafiti.hanger.service;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.stream.Collectors;
-import javax.transaction.Transactional;
+import br.com.dafiti.hanger.model.AuditorData;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import br.com.dafiti.hanger.model.Job;
-import br.com.dafiti.hanger.option.Scope;
+import br.com.dafiti.hanger.model.JobBuild;
+import br.com.dafiti.hanger.model.JobStatus;
 import br.com.dafiti.hanger.option.Status;
-import br.com.dafiti.hanger.service.ConnectionService.ConnectionStatus;
-import br.com.dafiti.hanger.service.JobBuildPushService.PushInfo;
+import java.util.stream.Collectors;
+import org.apache.logging.log4j.Logger;
+import org.joda.time.LocalDateTime;
+import org.joda.time.Minutes;
+import org.joda.time.Seconds;
 
 /**
  *
@@ -51,6 +52,11 @@ public class Watchdog {
     private final JobBuildPushService jobBuildPushService;
     private final SlackService slackService;
     private final ConnectionService connectionService;
+    private final JenkinsService jenkinsServive;
+    private final AuditorService auditorService;
+    private final JobBuildStatusService jobBuildStatusService;
+
+    private static final Logger LOG = LogManager.getLogger(Watchdog.class.getName());
 
     @Autowired
     public Watchdog(
@@ -59,7 +65,10 @@ public class Watchdog {
             JobBuildService jobBuildService,
             JobBuildPushService jobBuildPushService,
             SlackService slackService,
-            ConnectionService connectionService) {
+            ConnectionService connectionService,
+            JenkinsService jenkinsServive,
+            AuditorService auditorService,
+            JobBuildStatusService jobBuildStatusService) {
 
         this.jobService = jobService;
         this.jobDetailsService = jobDetailsService;
@@ -67,74 +76,86 @@ public class Watchdog {
         this.jobBuildPushService = jobBuildPushService;
         this.slackService = slackService;
         this.connectionService = connectionService;
+        this.jenkinsServive = jenkinsServive;
+        this.auditorService = auditorService;
+        this.jobBuildStatusService = jobBuildStatusService;
     }
 
     /**
-     * Watchdog patrols at every minute past every 30th hour.
+     * Paw Patrol
      */
-    @Transactional
-    @Scheduled(cron = "5 */30 * * * *")
+    @Scheduled(cron = "${hanger.watchdog.cron}")
     public void patrol() {
-        Logger.getLogger(
-                Watchdog.class.getName())
-                .log(Level.INFO, "The watchdog is patrolling!");
-
         jobPatrol();
-
         connectionPatrol();
 
-        Logger.getLogger(
-                Watchdog.class.getName())
-                .log(Level.INFO, "The watchdog patrol is finished!");
+        LOG.log(Level.INFO, "The watchdog patrol is finished!");
     }
 
     /**
-     * Find jobs that can be built.
+     * Looks for jobs problems.
      */
     private void jobPatrol() {
+        LOG.log(Level.INFO, "The watchdog is patrolling jobs!");
+
         Iterable<Job> jobs = jobService.list();
 
         for (Job job : jobs) {
-            StringBuilder message = new StringBuilder();
+            //Identifies enabled jobs.
+            if (job.isEnabled()) {
+                Status status = jobDetailsService.getDetailsOf(job).getStatus();
 
-            if (jobDetailsService.getDetailsOf(job).getStatus().equals(Status.WAITING)) {
-                PushInfo push = jobBuildPushService.getPushInfo(job);
+                //Identifies jobs that are watchdog candidate. 
+                if (status.equals(Status.WAITING) || status.equals(Status.QUEUED) || status.equals(Status.RUNNING)) {
+                    //Identifies jobs waiting forever. 
+                    if (status.equals(Status.WAITING)) {
+                        //Identifies if parents were built at least 30 minutes ago.
+                        boolean buildable = !job.getParent().stream()
+                                .filter(
+                                        jobParent -> jobParent.getParent().getStatus() != null
+                                        && jobParent.getParent().getStatus().getBuild() != null
+                                        && Minutes
+                                                .minutesBetween(
+                                                        new LocalDateTime(jobParent.getParent().getStatus().getBuild().getDate()),
+                                                        new LocalDateTime()).getMinutes() >= 30
+                                ).collect(Collectors.toList()).isEmpty();
 
-                if (push.isReady()) {
-                    try {
-                        boolean onlyOptionalorDisabled = job
-                                .getParent()
-                                .stream()
-                                .filter(jobParent -> !jobParent.getScope().equals(Scope.OPTIONAL) && jobParent.getJob().isEnabled())
-                                .collect(Collectors.toList())
-                                .size() == 0;
+                        if (buildable
+                                && jobBuildPushService.getPushInfo(job).isReady()) {
 
-                        if (!onlyOptionalorDisabled) {
-                            jobBuildService.build(job);
-
-                            Logger.getLogger(
-                                    Watchdog.class.getName())
-                                    .log(Level.INFO, "The watchdog catched job ".concat(job.getName()));
-                            message
-                                    .append(":dog: The watchdog catched job ")
-                                    .append("*")
-                                    .append(job.getDisplayName())
-                                    .append("*");
+                            this.catcher(job, status);
+                        } else {
+                            LOG.log(Level.INFO, "The watchdog just sniffed {} job {}", new Object[]{status, job.getName()});
                         }
-                    } catch (URISyntaxException | IOException ex) {
-                        Logger.getLogger(
-                                Watchdog.class.getName())
-                                .log(Level.SEVERE, "The watchdog fail building " + job.getName(), ex);
-
-                        message
-                                .append(":hotdog: The watchdog fail building ")
-                                .append("*")
-                                .append(job.getDisplayName())
-                                .append("*");
                     }
 
-                    if (message.length() != 0) {
-                        slackService.send(message.toString());
+                    //Identifies jobs running forever.
+                    if (status.equals(Status.QUEUED) || status.equals(Status.RUNNING)) {
+                        JobStatus jobStatus = job.getStatus();
+
+                        if (jobStatus != null) {
+                            JobBuild jobBuild = jobStatus.getBuild();
+
+                            if (jobBuild != null) {
+                                int duration = (int) jenkinsServive.getEstimatedDuration(job);
+                                int interval = Seconds
+                                        .secondsBetween(
+                                                new LocalDateTime(jobBuild.getDate()),
+                                                new LocalDateTime()).getSeconds();
+
+                                //Identifies if its building or running for at least 30 minutes. 
+                                boolean buildable = (interval >= (duration < 1800 ? 1800 : duration));
+
+                                if (buildable
+                                        && !jenkinsServive.isBuilding(job, jobBuild.getNumber())
+                                        && jobBuildStatusService.isBuildable(job)) {
+
+                                    this.catcher(job, status);
+                                } else {
+                                    LOG.log(Level.INFO, "The watchdog just sniffed {} job {} with build number {} (Estimated job duration {} s | Interval {} s)", new Object[]{status, job.getName(), jobBuild.getNumber(), duration, interval});
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -142,12 +163,13 @@ public class Watchdog {
     }
 
     /**
-     * Find broken connections.
+     * Looks for connections problems.
      */
     private void connectionPatrol() {
-        for (ConnectionStatus status : this.connectionService.listConnectionStatus()) {
-            StringBuilder message = new StringBuilder();
+        LOG.log(Level.INFO, "The watchdog is patrolling connections!");
 
+        this.connectionService.listConnectionStatus().forEach((status) -> {
+            StringBuilder message = new StringBuilder();
             if (status.getStatus().equals(Status.FAILURE)) {
                 message
                         .append(":broken_heart: The connection ")
@@ -156,6 +178,48 @@ public class Watchdog {
 
                 slackService.send(message.toString());
             }
+        });
+    }
+
+    /**
+     * Catch a lost job.
+     *
+     * @param Job job
+     * @param Status status
+     */
+    private void catcher(Job job, Status status) {
+        StringBuilder message = new StringBuilder();
+
+        try {
+            //Build a job. 
+            jobBuildService.build(job);
+
+            //Log on console. 
+            LOG.log(Level.INFO, "The watchdog catched " + status + " job " + job.getName());
+
+            //Log on auditor. 
+            auditorService.publish("WATCHDOG",
+                    new AuditorData()
+                            .addData("name", job.getName())
+                            .addData("status", status.toString())
+                            .getData());
+
+            //Log on Slack.
+            slackService.send(message
+                    .append(":dog: The watchdog catched job ")
+                    .append("*")
+                    .append(job.getDisplayName())
+                    .append("*").toString());
+        } catch (Exception ex) {
+            //Log on console. 
+            LOG.log(Level.ERROR, "The watchdog fail building " + job.getName(), ex);
+
+            //Log on Slack.
+            slackService.send(message
+                    .append(":hotdog: The watchdog fail building ")
+                    .append("*")
+                    .append(job.getDisplayName())
+                    .append("*").toString());
         }
     }
 }

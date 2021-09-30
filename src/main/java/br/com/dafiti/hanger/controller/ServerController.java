@@ -166,13 +166,17 @@ public class ServerController {
         model.addAttribute("servers", serverService.list());
 
         if (jenkinsService.isRunning(server)) {
-            if (jenkinsService.hasNotificationPlugin(server)) {
-                model.addAttribute("successMessage", server.getName() + " is running and notification plugin is deployed!");
+            String message = server.getName() + " server is running.";
+
+            if (!jenkinsService.hasNotificationPlugin(server)) {
+                model.addAttribute("errorMessage", message + " Notification plugin is not deployed!");
+            } else if (!jenkinsService.hasBuildBlockerPlugin(server)) {
+                model.addAttribute("errorMessage", message + " Build Blocker plugin is not deployed!");
             } else {
-                model.addAttribute("errorMessage", server.getName() + " is running but notification plugin is not deployed!");
+                model.addAttribute("successMessage", message + " Plugins Notification and Build Blocker are deployed!");
             }
         } else {
-            model.addAttribute("errorMessage", server.getName() + " is not running!");
+            model.addAttribute("errorMessage", server.getName() + " server is not running!");
         }
 
         return "server/list";
@@ -198,10 +202,12 @@ public class ServerController {
                     List<String> jobs = jenkinsService.listJob(server);
 
                     for (String job : jobs) {
-                        if (jobService.findByName(job) == null) {
-                            Job jobSynced = new Job(job, server);
-                            jobService.save(jobSynced);
-                            jenkinsService.updateJob(jobSynced);
+                        if (jenkinsService.isBuildable(job, server)) {
+                            if (jobService.findByName(job) == null) {
+                                Job jobSynced = new Job(job, server);
+                                jobService.save(jobSynced);
+                                jenkinsService.updateJob(jobSynced);
+                            }
                         }
                     }
 

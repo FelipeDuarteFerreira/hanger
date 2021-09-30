@@ -28,13 +28,26 @@ import br.com.dafiti.hanger.model.JobParent;
 import br.com.dafiti.hanger.model.Server;
 import br.com.dafiti.hanger.model.Subject;
 import br.com.dafiti.hanger.model.User;
+import br.com.dafiti.hanger.option.Action;
 import br.com.dafiti.hanger.option.Flow;
 import br.com.dafiti.hanger.option.Scope;
 import br.com.dafiti.hanger.repository.JobRepository;
+import com.cronutils.descriptor.CronDescriptor;
+import static com.cronutils.model.CronType.QUARTZ;
+import static com.cronutils.model.CronType.UNIX;
+import com.cronutils.model.definition.CronDefinitionBuilder;
+import com.cronutils.parser.CronParser;
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.commons.lang.StringUtils;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -52,6 +65,8 @@ public class JobService {
     private final JobParentService jobParentService;
     private final JenkinsService jenkinsService;
     private final JobStatusService jobStatusService;
+
+    private static final Logger LOG = LogManager.getLogger(JobService.class.getName());
 
     @Autowired
     public JobService(
@@ -75,8 +90,48 @@ public class JobService {
         return jobRepository.findAll();
     }
 
+    /**
+     * Return a server job list.
+     *
+     * @param server Server
+     * @param incremental Identifies if should list only not imported jobs.
+     * @return server job list.
+     * @throws URISyntaxException
+     * @throws IOException
+     */
+    public List<String> listFromServer(
+            Server server,
+            boolean incremental) throws URISyntaxException, IOException {
+
+        List<String> list = new ArrayList<>();
+        List<String> jenkinsJob = jenkinsService.listJob(server);
+
+        if (incremental) {
+            Iterable<Job> cache = this.listFromCache();
+
+            for (String jobServer : jenkinsJob) {
+                boolean exists = false;
+
+                for (Job job : cache) {
+                    if (jobServer.equalsIgnoreCase(job.getName())) {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (!exists) {
+                    list.add(jobServer);
+                }
+            }
+        } else {
+            list = jenkinsJob;
+        }
+
+        return list;
+    }
+
     public Job load(Long id) {
-        return jobRepository.findOne(id);
+        return jobRepository.findById(id).get();
     }
 
     public List<Job> findBySubjectOrderByName(Subject subject) {
@@ -92,27 +147,128 @@ public class JobService {
     }
 
     public List<Job> findByNameContainingOrAliasContaining(String search) {
-        return jobRepository.findByNameContainingOrAliasContaining(search,search);
+        return jobRepository.findByNameContainingOrAliasContaining(search, search);
     }
 
+    public List<Job> findByServer(Server server) {
+        return jobRepository.findByServer(server);
+    }
+
+    @Cacheable(value = "job_count")
+    public long count() {
+        return jobRepository.count();
+    }
+
+    @Cacheable(value = "job_count_by_subject")
+    public long countByEnabledTrueAndSubject(Subject subject) {
+        return jobRepository.countByEnabledTrueAndSubject(subject);
+    }
+
+    @Caching(evict = {
+        @CacheEvict(value = "job_count", allEntries = true),
+        @CacheEvict(value = "job_count_by_subject", allEntries = true)})
     public Job save(Job job) {
+        //Define the relation between the job and its parents.
+        job.getParent().stream().forEach((parent) -> {
+            if (parent.getJob() == null) {
+                parent.setJob(job);
+            }
+        });
+
+        //Define if the job checkup can have a trigger.
+        if (!job.getCheckup().isEmpty()) {
+            job.getCheckup().stream().forEach((checkup) -> {
+                if (!checkup.getAction().equals(Action.REBUILD_TRIGGER)) {
+                    checkup.setTrigger(new ArrayList());
+                }
+            });
+        }
+
+        //Define if rebuilt blocker can be checked. 
+        job.setRebuildBlocked(
+                job.
+                        getParent().
+                        stream().
+                        filter(parent -> parent.isBlocker()).count() != 0
+        );
+
+        //Identify if the time windows cron expression is valid. 
+        if ((job.getTimeRestriction() != null)
+                && (!job.getTimeRestriction().isEmpty())) {
+            new CronParser(
+                    CronDefinitionBuilder.instanceDefinitionFor(QUARTZ))
+                    .parse(job.getTimeRestriction()).validate();
+        }
+
         return jobRepository.save(job);
     }
 
+    /**
+     * Save a job and update its related job on Jenkins.
+     *
+     * @param job Job
+     * @return Job
+     */
     @Caching(evict = {
-        @CacheEvict(value = "jobs", allEntries = true)})
-    public Job saveAndRefreshCache(Job job) {
-        return jobRepository.save(job);
+        @CacheEvict(value = "jobs", allEntries = true),
+        @CacheEvict(value = "job_count", allEntries = true),
+        @CacheEvict(value = "job_count_by_subject", allEntries = true),
+        @CacheEvict(value = "propagation", allEntries = true)})
+    public Job saveAndUpdateJobConfig(Job job) throws Exception {
+        Long id = job.getId();
+
+        if (id != null) {
+            Job previousVersion = this.load(id);
+
+            if (previousVersion != null) {
+                if (!job.getName().equals(previousVersion.getName())) {
+                    jenkinsService.renameJob(job, previousVersion.getName());
+                }
+            }
+        }
+
+        //Update shell script plugin. 
+        jenkinsService.updateShellScript(job);
+
+        //Update node. 
+        jenkinsService.updateNode(job);
+
+        //Update cron.
+        jenkinsService.updateCron(job);
+
+        //Update blocking jobs.
+        jenkinsService.updateBlockingJobs(job);
+
+        //Update name, notification plugin and enable/disable a job. 
+        jenkinsService.updateJob(job);
+
+        return this.save(job);
     }
 
     @Caching(evict = {
-        @CacheEvict(value = "jobs", allEntries = true)})
+        @CacheEvict(value = "jobs", allEntries = true),
+        @CacheEvict(value = "job_count", allEntries = true),
+        @CacheEvict(value = "job_count_by_subject", allEntries = true),
+        @CacheEvict(value = "propagation", allEntries = true)})
+    public Job enable(Job job) {
+        jenkinsService.updateJob(job);
+        return this.save(job);
+    }
+
+    @Caching(evict = {
+        @CacheEvict(value = "jobs", allEntries = true),
+        @CacheEvict(value = "job_count", allEntries = true),
+        @CacheEvict(value = "job_count_by_subject", allEntries = true),
+        @CacheEvict(value = "propagation", allEntries = true)})
     public void delete(Long id) {
-        jobRepository.delete(id);
+        jobRepository.deleteById(id);
     }
 
     @Caching(evict = {
-        @CacheEvict(value = "jobs", allEntries = true)})
+        @CacheEvict(value = "jobs", allEntries = true),
+        @CacheEvict(value = "job_count", allEntries = true),
+        @CacheEvict(value = "job_count_by_subject", allEntries = true),
+        @CacheEvict(value = "propagation", allEntries = true)})
     public void refresh() {
     }
 
@@ -136,13 +292,15 @@ public class JobService {
      * @param server Server
      * @param parentJobList ParentJobList
      * @param parentUpstream ParentUpstream
+     * @param error Errors
      * @throws Exception
      */
     public void addParent(
             Job job,
             Server server,
             List<String> parentJobList,
-            boolean parentUpstream) throws Exception {
+            boolean parentUpstream,
+            List<String> error) throws Exception {
 
         if (parentJobList == null) {
             parentJobList = new ArrayList();
@@ -164,14 +322,14 @@ public class JobService {
             Job parentJob = this.findByName(name);
 
             //Identify if the parent is valid.
-            if (!job.getName().equals(name) && !name.toUpperCase().contains("_TRIGGER_")) {
+            if (!job.getName().equals(name) && jenkinsService.isBuildable(name, server)) {
                 //Identify if the parent job should be imported. 
                 if (parentJob == null) {
                     Job transientJob = new Job(name, server);
 
                     //Identify if should import upstream jobs recursively.
                     if (parentUpstream) {
-                        this.addParent(transientJob, server, null, parentUpstream);
+                        this.addParent(transientJob, server, null, parentUpstream, error);
                     }
 
                     //Import the parent job. 
@@ -198,6 +356,8 @@ public class JobService {
                 } else {
                     throw new Exception("Cyclic Reference: " + lineage.toString().concat(parentJob.getName()));
                 }
+            } else {
+                error.add(name);
             }
         }
     }
@@ -417,7 +577,7 @@ public class JobService {
             Job job,
             boolean self) {
 
-        HashSet<Job> propagation = this.getPropagation(job, new HashSet());
+        HashSet<Job> propagation = this.getPropagation(job, new HashSet(), 0);
 
         if (!self) {
             propagation.remove(job);
@@ -434,19 +594,111 @@ public class JobService {
      * @param propagation Propagation list
      * @return Mesh list.
      */
+    @Cacheable(value = "propagation", key = "{#job.id}")
     private HashSet<Job> getPropagation(
             Job job,
-            HashSet<Job> propagation) {
+            HashSet<Job> propagation,
+            int level) {
+
+        level++;
 
         HashSet<JobParent> childs = jobParentService.findByParent(job);
 
         if (!childs.isEmpty()) {
-            childs.stream().forEach((child) -> {
-                this.getPropagation(child.getJob(), propagation);
-            });
+            for (JobParent child : childs) {
+                if (!propagation.contains(job)) {
+                    LOG.log(Level.INFO, StringUtils.repeat(".", level) + child.getJob().getName());
+
+                    this.getPropagation(child.getJob(), propagation, level);
+                }
+            }
         }
 
         propagation.add(job);
         return propagation;
+    }
+
+    /**
+     * Add job child (children).
+     *
+     * @param job Job
+     * @param server Server
+     * @param childrenJobList
+     * @param parentUpstream ParentUpstream
+     * @param rebuildable Identify if should make a job rebuildable.
+     * @param error errors
+     * @throws Exception
+     */
+    public void addChildren(
+            Job job,
+            Server server,
+            List<String> childrenJobList,
+            boolean parentUpstream,
+            boolean rebuildable,
+            List<String> error) throws Exception {
+
+        for (String child : childrenJobList) {
+            Job jobChild = this.findByName(child);
+
+            //Identify if child exists.
+            if (jobChild == null) {
+                jobChild = new Job(child, server);
+            }
+
+            //Identify if child is valid.
+            if (jenkinsService.isBuildable(jobChild)) {
+                ArrayList parentList = new ArrayList();
+                parentList.add(job.getName());
+
+                if (rebuildable) {
+                    jobChild.setRebuild(rebuildable);
+                }
+
+                this.addParent(jobChild, job.getServer(), parentList, false, error);
+                this.save(jobChild);
+
+                jenkinsService.updateJob(jobChild);
+            } else {
+                error.add(child);
+            }
+        }
+    }
+
+    /**
+     * Get children by parent.
+     *
+     * @param job Job
+     * @return
+     */
+    public HashSet<JobParent> getChildrenlist(Job job) {
+        return jobParentService.findByParent(job);
+    }
+
+    /**
+     * Get cron description.
+     *
+     * @param cron
+     * @return
+     */
+    public String getCronDescription(String cron) {
+        String description = "";
+
+        try {
+            if (cron != null) {
+                if (!cron.isEmpty()) {
+                    description = StringUtils.capitalize(
+                            CronDescriptor
+                                    .instance(Locale.ENGLISH)
+                                    .describe(new CronParser(
+                                            CronDefinitionBuilder.instanceDefinitionFor(UNIX))
+                                            .parse(cron)
+                                    )
+                    );
+                }
+            }
+        } catch (Exception e) {
+        }
+
+        return description;
     }
 }

@@ -23,11 +23,17 @@
  */
 package br.com.dafiti.hanger.service;
 
+import br.com.dafiti.hanger.model.Job;
+import br.com.dafiti.hanger.model.JobCheckup;
 import br.com.dafiti.hanger.model.JobCheckupLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import br.com.dafiti.hanger.repository.JobCheckupLogRepository;
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.data.domain.PageRequest;
 
 /**
  *
@@ -48,7 +54,7 @@ public class JobCheckupLogService {
     }
 
     public JobCheckupLog load(Long id) {
-        return jobCheckupLogRepository.findOne(id);
+        return jobCheckupLogRepository.findById(id).get();
     }
 
     public JobCheckupLog save(JobCheckupLog jobCheckupLog) {
@@ -56,10 +62,29 @@ public class JobCheckupLogService {
     }
 
     public void delete(Long id) {
-        jobCheckupLogRepository.delete(id);
+        jobCheckupLogRepository.deleteById(id);
     }
 
     public void cleaneup(Date expiration) {
         jobCheckupLogRepository.deleteByDateBefore(expiration);
+    }
+
+    /**
+     * Find a list of checkups and its logs of a job.
+     *
+     * @param job Job
+     * @param from Date from.
+     * @param to Date to.
+     * @param item Item per page.
+     * @return JobCheckupLog map of each JobCheckup.
+     */
+    public Map<JobCheckup, List<JobCheckupLog>> findByJobCheckupAndDateBetween(Job job, Date from, Date to, int item) {
+        Map<JobCheckup, List<JobCheckupLog>> checkupLogs = new LinkedHashMap();
+
+        job.getCheckup().forEach(checkup -> {
+            checkupLogs.put(checkup, jobCheckupLogRepository.findByCheckupAndDateBetweenOrderByDateDesc(checkup, from, to, PageRequest.of(0, item)));
+        });
+
+        return checkupLogs;
     }
 }

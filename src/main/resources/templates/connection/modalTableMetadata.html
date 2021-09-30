@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <!--OPTION FRAGMENT BEGIN-->
+            <div class="modal fade" id="modalTableMetadata" tabindex="-1" role="dialog" aria-labelledby="modalTableMetadataLabel" th:fragment="metadata">
+                <div class="modal-dialog modal-lg" role="document">
+                    <form method="POST" th:action="@{/workbench/fields}" class="form-horizontal" id="form-metadata">
+                        <!--  Connection ID -->
+                        <input type="hidden" name="id" id="id" th:value="*{connection.id}"/>                         
+                        <!--  catalog -->
+                        <input type="hidden" name="catalog" id="catalog" th:value="*{catalog}"/>                         
+                        <!--  schema -->
+                        <input type="hidden" name="schema" id="schema" th:value="*{schema}"/>                         
+                        <!--  table -->
+                        <input type="hidden" name="table" id="table" th:value="*{table}"/> 
+
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                                <h4 class="modal-title" id="modalTableMetadataLabel" th:text="${table + ' metadata'}"></h4>
+                            </div>
+                            <div class="modal-body">
+                                <fieldset>
+                                    <legend class="space-top">                                        
+                                        <a class="link" 
+                                           data-toggle="collapse" 
+                                           href="#collapsePrimary" 
+                                           role="button" 
+                                           aria-expanded="false" 
+                                           aria-controls="collapsePrimary" 
+                                           title="Click to expand or collapse">
+                                            <span class="glyphicon glyphicon-triangle-bottom"></span>
+                                            Primary key                                            
+                                        </a>
+                                    </legend>
+
+                                    <div class="collapse" id="collapsePrimary">
+                                        <table id="table_clean" class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width:5%">#</th>
+                                                    <th>Name</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr th:each="pk : ${pk}">
+                                                    <td th:text="${pk.position}">Position</td>
+                                                    <td th:text="${pk.name}">Name</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </fieldset>
+
+                                <fieldset>
+                                    <legend>
+                                        <a class="link" 
+                                           data-toggle="collapse" 
+                                           href="#collapseIndex" 
+                                           role="button" aria-expanded="false" 
+                                           aria-controls="collapseIndex" 
+                                           title="Click to expand or collapse">
+                                            <span class="glyphicon glyphicon-triangle-bottom"></span>
+                                            Indexes
+                                        </a>
+                                    </legend>
+
+                                    <div class="collapse" id="collapseIndex">
+                                        <table id="table_clean" class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width:5%">#</th>
+                                                    <th>Non Unique</th>
+                                                    <th>Qualifier</th>
+                                                    <th>Name</th>
+                                                    <th>Type</th>
+                                                    <th>Column name</th>
+                                                    <th>Asc or Desc</th>
+                                                    <th>Cardinality</th>                                                 
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr th:each="index : ${indexes}">
+                                                    <td th:text="${index.position}">position</td>
+                                                    <td th:text="${index.nonUnique}">nonUnique</td>
+                                                    <td th:text="${index.qualifier}">qualifier</td>
+                                                    <td th:text="${index.name}">name</td>
+                                                    <td th:text="${index.type}">type</td>                                                    
+                                                    <td th:text="${index.columnName}">columnName</td>
+                                                    <td th:text="${index.ascOrDesc}">ascOrDesc</td>
+                                                    <td th:text="${index.cardinality}">cardinality</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+
+                                    </div>
+                                </fieldset>
+
+                                <fieldset>
+                                    <legend>                                        
+                                        <a class="link" 
+                                           data-toggle="collapse" 
+                                           href="#collapseColumn" 
+                                           role="button" 
+                                           aria-expanded="false" 
+                                           aria-controls="collapseColumn" 
+                                           title="Click to expand or collapse">
+                                            <span class="glyphicon glyphicon-triangle-bottom"></span>
+                                            Columns
+                                        </a>
+                                    </legend>
+
+                                    <div class="collapse in" id="collapseColumn">
+                                        <table id="table" class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width:5%">
+                                                        <input type="checkbox"
+                                                               name="select_fields"
+                                                               id="select_fields"
+                                                               title="Select all fields"/>
+                                                    </th>
+                                                    <th style="width:5%">#</th>
+                                                    <th>Name</th>
+                                                    <th>Type</th>
+                                                    <th>Size</th>
+                                                    <th>Decimal</th>
+                                                    <th>Remark</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr th:each="column, stat : ${column}">
+                                                    <td>
+                                                        <input type="checkbox"
+                                                               name="fields"
+                                                               th:id="${stat.index}"
+                                                               th:value="${column.name}" />
+                                                    </td>    
+                                                    <td>                                                    
+                                                        <label th:for="${stat.index}" 
+                                                               th:text="${column.position}"
+                                                               class="span-field">                                                               
+                                                        </label>
+                                                    </td>
+                                                    <td>
+                                                        <label th:for="${stat.index}" 
+                                                               th:text="${column.name}"
+                                                               class="span-field">                                                               
+                                                        </label>
+                                                    </td>
+                                                    <td>                                                    
+                                                        <label th:for="${stat.index}" 
+                                                               th:text="${column.type}"
+                                                               class="span-field">                                                               
+                                                        </label>
+                                                    </td>
+                                                    <td>
+                                                        <label th:for="${stat.index}" 
+                                                               th:text="${column.size}"
+                                                               class="span-field">                                                               
+                                                        </label>
+                                                    </td>
+                                                    <td>
+                                                        <label th:for="${stat.index}" 
+                                                               th:text="${column.decimal}"
+                                                               class="span-field">                                                               
+                                                        </label>
+                                                    </td>
+                                                    <td>
+                                                        <label th:for="${stat.index}" 
+                                                               th:text="${column.remark}"
+                                                               class="span-field">                                                               
+                                                        </label>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </fieldset>
+                            </div>
+                            <div class="modal-footer">                                
+                                <button 
+                                    type="button" 
+                                    class="btn btn-generic btn-sm" 
+                                    data-dismiss="modal">
+                                    <span aria-hidden="true"></span> Close
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    class="btn btn-generic btn-sm" 
+                                    title="Add selected fields to query">                                    
+                                    <span aria-hidden="true"></span> 
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <script th:inline="javascript">
+                        $(function () {
+                            /**
+                             * Check or Unckeck all fields.
+                             */
+                            $('#select_fields').on('click', function (e) {
+                                $("input[name='fields']").each(function () {
+                                    $(this).prop('checked', $("#select_fields").is(":checked"));
+                                });
+                            });
+                        });
+                    </script>
+                </div>
+            </div>
+            <!--OPTION FRAGMENT END-->
+        </div>
+    </body>
+</html>

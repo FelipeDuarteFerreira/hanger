@@ -6,19 +6,6 @@
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
         <div class="container-fluid main-content">
-            <table>
-                <tr>
-                    <th>
-                        <h3 class="page-title">Server</h3>
-                    </th>
-                    <th class="btn-action">
-                        <a th:href="@{'/server/add/'}" title="Add Server">
-                            <span class="glyphicon glyphicon-plus"></span>
-                        </a>
-                    </th>
-                </tr>            
-            </table>
-
             <div th:if="${ errorMessage != null }" class="form-group">
                 <div class="alert alert-danger" role="alert">
                     <span th:text="${errorMessage}"></span>
@@ -31,13 +18,13 @@
                 </div>  
             </div>
 
-            <table id="table" class="table table-hover">
+            <table id="table" class="table table-hover space-top">
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th style="width:20%">Name</th>
-                        <th style="width:40%">Url</th>
-                        <th style="width:40%">Username</th>
+                        <th style="width:30%">Name</th>
+                        <th style="width:35%">Url</th>
+                        <th style="width:35%">Username</th>
                         <th class="no-sort"></th>
                         <th class="no-sort"></th>
                         <th class="no-sort"></th>
@@ -55,13 +42,13 @@
                                 <a th:if="${#authorization.expression('hasRole(''HERO'')')}" 
                                    class="btn btn-xs btn-generic" 
                                    data-toggle="modal" 
-                                   th:attr="data-target='#'+${server.id}" 
+                                   th:attr="data-target='#' + 'import_' + ${server.id}" 
                                    href="">
                                     <span class="glyphicon glyphicon-import" aria-hidden="true"></span> Import
                                 </a>
                             </div>
                             <!-- INÍCIO MODAL IMPORT -->
-                            <div class="modal fade" th:id="${server.id}" tabindex="-1" role="dialog" aria-labelledby="modalImport">
+                            <div class="modal fade" th:id="${'import_' + server.id}" tabindex="-1" role="dialog" aria-labelledby="modalImport">
                                 <div class="modal-dialog" role="document">
                                     <div class="modal-content">
                                         <div class="modal-header">
@@ -97,8 +84,9 @@
                         </td>
                         <td>
                             <div class="form-group">
-                                <a class="btn btn-xs btn-delete" data-toggle="modal" 
-                                   th:attr="data-target='#'+${server.id}" 
+                                <a th:if="${#authorization.expression('hasRole(''HERO'')')}"
+                                   class="btn btn-xs btn-delete" data-toggle="modal" 
+                                   th:attr="data-target='#' + 'delete_' + ${server.id}" 
                                    href="">
 
                                     <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete
@@ -106,7 +94,7 @@
                             </div>
 
                             <!-- INÍCIO MODAL DELETE -->
-                            <div class="modal fade" th:id="${server.id}" tabindex="-1" role="dialog" aria-labelledby="modalDelete">
+                            <div class="modal fade" th:id="${'delete_' + server.id}" tabindex="-1" role="dialog" aria-labelledby="modalDelete">
                                 <div class="modal-dialog" role="document">
                                     <div class="modal-content">
                                         <div class="modal-header">

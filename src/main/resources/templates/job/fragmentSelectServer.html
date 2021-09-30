@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>        
+        <div class="container">
+            <!--Fragment-->
+            <div th:fragment="selectServer">
+                <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                    <label class="btn radio-generic active">
+                        <input type="radio" name="action" id="import" value="import" checked="checked"> Import
+                    </label>
+                    <label class="btn radio-generic">
+                        <input type="radio" name="action" id="create" value="create"> Create
+                    </label>
+                    <label class="btn radio-generic">
+                        <input type="radio" name="action" id="migrate" value="migrate"> Migrate
+                    </label>
+                </div>
+
+                <hr />
+
+                <!--IMPORT-->
+                <div class="div-import">
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Server</label> 
+                            <select class="selectpicker form-control select-server" data-live-search="true" name="importServer" id="importServer">
+                                <option value=""></option>
+                                <option th:each="server : ${servers}" 
+                                        th:value="${server.id}" 
+                                        th:text="${server.name}">
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Name</label>
+                            <select class="selectpicker form-control select-job incremental" data-live-search="true" name="importJob" id="importJob"></select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <button type="submit" class="btn btn-generic btn-sm" name="partial_import_job" id="partial_import_job">
+                                <span class="glyphicon glyphicon-forward" aria-hidden="true"></span> Next
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!--CREATE-->
+                <div class="div-create">
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Server</label> 
+                            <select class="selectpicker form-control select-server" data-live-search="true" name="createServer" id="createServer">
+                                <option value=""></option>
+                                <option th:each="server : ${servers}" 
+                                        th:value="${server.id}" 
+                                        th:text="${server.name}">
+                                </option>
+                            </select>
+                        </div>
+                    </div>                    
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Template</label> 
+                            <select class="selectpicker form-control select-job" data-live-search="true" name="createJob" id="createJob"></select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Name</label> 
+                            <input type="text" class="form-control job-name" name="createJobName" id="createJobName" minlength="10" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <button type="submit" class="btn btn-generic btn-sm" name="partial_create_job" id="partial_create_job">
+                                <span class="glyphicon glyphicon-forward" aria-hidden="true"></span> Next
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!--MIGRATE-->
+                <div class="div-migrate">
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Source server</label> 
+                            <select class="selectpicker form-control select-server" data-live-search="true" name="migrateSourceServer" id="migrateSourceServer">
+                                <option value=""></option>
+                                <option th:each="server : ${servers}" 
+                                        th:value="${server.id}" 
+                                        th:text="${server.name}">
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Job</label>
+                            <select class="selectpicker form-control select-job" data-live-search="true" name="migrateSourceJob" id="migrateSourceJob"></select>
+                        </div>
+                    </div>
+
+                    <div class="form-group div-select-server">
+                        <div class="col-sm-10">
+                            <label>Target server</label> 
+                            <select class="selectpicker form-control select-server" data-live-search="true" name="migrateTargetServer" id="migrateTargetServer">
+                                <option value=""></option>
+                                <option th:each="server : ${servers}" 
+                                        th:value="${server.id}" 
+                                        th:text="${server.name}">
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Template</label> 
+                            <select class="selectpicker form-control select-job" data-live-search="true" name="migrateTargetJob" id="migrateTargetJob"></select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Name</label> 
+                            <input type="text" class="form-control job-name" name="migrateJobName" id="migrateJobName" minlength="10" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <button type="submit" class="btn btn-generic btn-sm" name="partial_migrate_job" id="partial_migrate_job">
+                                <span class="glyphicon glyphicon-forward" aria-hidden="true"></span> Next
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>       	
+    </body>
+</html>

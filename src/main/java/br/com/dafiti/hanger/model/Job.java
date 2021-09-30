@@ -23,10 +23,18 @@
  */
 package br.com.dafiti.hanger.model;
 
+import com.cronutils.descriptor.CronDescriptor;
+import static com.cronutils.model.CronType.QUARTZ;
+import static com.cronutils.model.CronType.UNIX;
+
+import com.cronutils.model.Cron;
+import com.cronutils.model.definition.CronDefinitionBuilder;
+import com.cronutils.parser.CronParser;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import javax.persistence.CascadeType;
@@ -45,13 +53,16 @@ import javax.persistence.ManyToMany;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
-import javax.persistence.OrderBy;
 import javax.persistence.Table;
 import javax.persistence.Transient;
 import javax.validation.constraints.Size;
+import org.apache.commons.lang.StringUtils;
+import org.commonmark.node.Node;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
 import org.hibernate.annotations.BatchSize;
-import org.hibernate.annotations.Fetch;
-import org.hibernate.annotations.FetchMode;
+import org.hibernate.annotations.OrderBy;
+import org.json.JSONObject;
 
 /**
  *
@@ -60,13 +71,15 @@ import org.hibernate.annotations.FetchMode;
 @Entity
 @Table(indexes = {
     @Index(name = "IDX_name", columnList = "name", unique = false)})
-public class Job extends Tracker implements Serializable {
+public class Job extends Tracker<Job> implements Serializable {
 
     private Long id;
     private Server server;
     private String name;
     private String alias;
     private String description;
+    private String timeRestriction;
+    private String node;
     private int retry;
     private int tolerance;
     private int wait;
@@ -76,12 +89,23 @@ public class Job extends Tracker implements Serializable {
     private List<Subject> subject = new ArrayList();
     private List<JobCheckup> checkup = new ArrayList();
     private List<JobApproval> approval = new ArrayList();
+    private List<WorkbenchEmail> email = new ArrayList();
+    private List<String> shellScript = new ArrayList();
     private Set<String> channel = new HashSet();
-    private boolean rebuild;
-    private boolean notify;
     private boolean enabled = true;
+    private boolean notify;
+    private boolean rebuild;
+    private boolean rebuildBlocked;
+    private boolean anyScope;
+    private boolean checkupNotified;
+    private String cron;
+    private String blockingJobs;
 
     public Job() {
+    }
+
+    public Job(Long id) {
+        this.id = id;
     }
 
     public Job(String name, Server server) {
@@ -90,7 +114,7 @@ public class Job extends Tracker implements Serializable {
     }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long getId() {
         return id;
     }
@@ -130,9 +154,9 @@ public class Job extends Tracker implements Serializable {
     @Transient
     public String getDisplayName() {
         if (alias == null || alias.isEmpty()) {
-            return name;
+            return name.replaceAll(" ", "_");
         }
-        return alias + " [alias]";
+        return alias.replaceAll(" ", "_") + "[alias]";
     }
 
     @Column(columnDefinition = "text")
@@ -144,9 +168,17 @@ public class Job extends Tracker implements Serializable {
         this.description = description;
     }
 
+    @Transient
+    public String getHTMLDescription() {
+        Parser parser = Parser.builder().build();
+        Node document = parser.parse(this.getDescription());
+        HtmlRenderer renderer = HtmlRenderer.builder().build();
+
+        return renderer.render(document);
+    }
+
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "status_id", referencedColumnName = "id")
-    @BatchSize(size = 10)
     public JobStatus getStatus() {
         if (status == null) {
             status = new JobStatus();
@@ -176,9 +208,10 @@ public class Job extends Tracker implements Serializable {
         this.subject.add(subject);
     }
 
-    @OneToMany(mappedBy = "job", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
-    @Fetch(FetchMode.SELECT)
-    @OrderBy(value = "id, scope")
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "job_id", referencedColumnName = "id")
+    @BatchSize(size = 20)
+    @OrderBy(clause = "id, scope")
     public List<JobParent> getParent() {
         return parent;
     }
@@ -193,7 +226,7 @@ public class Job extends Tracker implements Serializable {
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "job_id", referencedColumnName = "id")
-    @BatchSize(size = 10)
+    @BatchSize(size = 20)
     public List<JobCheckup> getCheckup() {
         return checkup;
     }
@@ -208,7 +241,7 @@ public class Job extends Tracker implements Serializable {
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "job_id", referencedColumnName = "id")
-    @BatchSize(size = 10)
+    @BatchSize(size = 20)
     public List<JobApproval> getApproval() {
         return approval;
     }
@@ -219,6 +252,46 @@ public class Job extends Tracker implements Serializable {
 
     public void addApproval(JobApproval approval) {
         this.approval.add(approval);
+    }
+
+    @ManyToMany(cascade = {CascadeType.DETACH, CascadeType.MERGE, CascadeType.REFRESH, CascadeType.PERSIST})
+    @JoinTable(name = "job_workbench_email",
+            joinColumns = {
+                @JoinColumn(name = "job_id", referencedColumnName = "id")},
+            inverseJoinColumns = {
+                @JoinColumn(name = "workbench_email_id", referencedColumnName = "id")})
+    public List<WorkbenchEmail> getEmail() {
+        return email;
+    }
+
+    public void setEmail(List<WorkbenchEmail> email) {
+        this.email = email;
+    }
+
+    public void addEmail(WorkbenchEmail email) {
+        this.email.add(email);
+    }
+
+    @Transient
+    public List<String> getShellScript() {
+        return shellScript;
+    }
+
+    public void setShellScript(List<String> shellScript) {
+        this.shellScript = shellScript;
+    }
+
+    public void addShellScript(String shellScript) {
+        this.shellScript.add(shellScript);
+    }
+
+    @Transient
+    public String getNode() {
+        return node;
+    }
+
+    public void setNode(String node) {
+        this.node = node;
     }
 
     public boolean isRebuild() {
@@ -294,30 +367,101 @@ public class Job extends Tracker implements Serializable {
         this.enabled = enabled;
     }
 
-    @Override
-    public String toString() {
-        StringBuilder job = new StringBuilder();
-        StringBuilder jobParent = new StringBuilder();
+    public boolean isRebuildBlocked() {
+        return rebuildBlocked;
+    }
 
-        for (JobParent parents : this.parent) {
-            if (jobParent.length() != 0) {
-                jobParent.append(",");
+    public void setRebuildBlocked(boolean rebuildBlocked) {
+        this.rebuildBlocked = rebuildBlocked;
+    }
+
+    public String getTimeRestriction() {
+        return timeRestriction;
+    }
+
+    public void setTimeRestriction(String timeRestriction) {
+        this.timeRestriction = timeRestriction;
+    }
+
+    @Transient
+    public String getTimeRestrictionDescription() {
+        String verbose = "";
+
+        if (this.getTimeRestriction() != null) {
+            if (!this.getTimeRestriction().isEmpty()) {
+                verbose = StringUtils.capitalize(
+                        CronDescriptor
+                                .instance(Locale.ENGLISH)
+                                .describe(new CronParser(
+                                        CronDefinitionBuilder.instanceDefinitionFor(QUARTZ))
+                                        .parse(this.getTimeRestriction())
+                                )
+                );
             }
-
-            jobParent.append("{");
-            jobParent.append("\"name\":").append(parents.getParent().getName()).append("\",");
-            jobParent.append("\"scope\":").append(parents.getScope()).append("\"");
-            jobParent.append("}");
         }
 
-        job.append("{\n");
-        job.append("    \"job\": {\n");
-        job.append("        \"name\":").append("\"").append(this.name).append("\"\n");
-        job.append("        \"parent\":").append("[").append(jobParent.toString()).append("]\n");
-        job.append("    }\n");
-        job.append("}");
+        return verbose;
+    }
 
-        return job.toString();
+    public boolean isAnyScope() {
+        return anyScope;
+    }
+
+    public void setAnyScope(boolean anyScope) {
+        this.anyScope = anyScope;
+    }
+
+    public boolean isCheckupNotified() {
+        return checkupNotified;
+    }
+
+    public void setCheckupNotified(boolean checkupNotified) {
+        this.checkupNotified = checkupNotified;
+    }
+
+    @Transient
+    public String getCron() {
+        return cron;
+    }
+
+    public void setCron(String cron) {
+        this.cron = cron;
+    }
+
+    @Transient
+    public String getCronDescription() {
+    	return this.getCronDescription(false);
+    }
+    
+    @Transient
+    public String getCronDescription(boolean secure) {
+		String cronDescription = "";
+
+		if (this.getCron() != null && !this.getCron().isEmpty()) {
+			CronParser parser = new CronParser(CronDefinitionBuilder.instanceDefinitionFor(UNIX));
+			CronDescriptor descriptor = CronDescriptor.instance(Locale.ENGLISH);
+
+			if (secure) {
+				try {
+					cronDescription = descriptor.describe(parser.parse(this.getCron()));
+				} catch (IllegalArgumentException e) {
+					cronDescription = e.getMessage();
+				}
+			} else {
+				cronDescription = descriptor.describe(parser.parse(this.getCron()));
+			}
+		}
+
+		return StringUtils.capitalize(cronDescription);
+    }
+
+    @Transient
+    public String getBlockingJobs() {
+        return blockingJobs;
+    }
+
+    public void setBlockingJobs(String blockingJobs) {
+        this.blockingJobs = blockingJobs;
     }
 
     @Override
@@ -343,5 +487,16 @@ public class Job extends Tracker implements Serializable {
         }
 
         return Objects.equals(this.id, other.id);
+    }
+
+    @Override
+    public String toString() {
+        JSONObject object = new JSONObject();
+        object.put("id", id);
+        object.put("name", name);
+        object.put("alias", alias);
+        object.put("description", description);
+        object.put("enabled", enabled);
+        return object.toString(2);
     }
 }

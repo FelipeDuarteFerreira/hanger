@@ -47,6 +47,7 @@ public class JobParent implements Serializable {
     private Job job;
     private Job parent;
     private Scope scope;
+    private boolean blocker;
 
     public JobParent() {
     }
@@ -58,7 +59,7 @@ public class JobParent implements Serializable {
     }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long getId() {
         return id;
     }
@@ -94,6 +95,14 @@ public class JobParent implements Serializable {
 
     public void setScope(Scope scope) {
         this.scope = scope;
+    }
+
+    public boolean isBlocker() {
+        return blocker;
+    }
+
+    public void setBlocker(boolean blocker) {
+        this.blocker = blocker;
     }
 
     @Override

@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>        
+        <div class="container">
+            <!--Fragment-->
+            <div th:fragment="resultSet">
+                <div th:if="${ errorMessage != null }">
+                    <div class="alert alert-danger" role="alert">
+                        <span th:text="${errorMessage}"></span>
+                    </div>  
+                </div> 
+
+                <div th:if="${ errorMessage == null }">
+                    <div class="tab-content">
+                        <!--Table or graph selector-->
+                        <ul class="nav nav-pills pull-right" id="tabSelector">                    
+                            <li class="active">
+                                <a data-toggle="tab" href="#list">
+                                    <span class="glyphicon glyphicon-th-list" title="Table"></span>
+                                </a>                                
+                            </li>
+                            <li >
+                                <a data-toggle="tab" href="#graph">
+                                    <span class="glyphicon glyphicon-signal" title="Chart"></span>
+                                </a>  
+                            </li>
+                        </ul>
+
+                        <!--Table view-->
+                        <div id="list" class="tab-pane fade active in">
+                            <div class="row col-sm-12">
+                                <table id="table" class="table table-hover space-top table-workbench-result">
+                                    <thead> 
+                                        <tr>
+                                            <th 
+                                                th:each="header: ${resultset.header}" 
+                                                class="column-title" 
+                                                th:text="${header}" 
+                                                data-toggle="tooltip" 
+                                                data-placement="top"
+                                                th:title="${resultset.type.get(header)}"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="row: ${resultset.row}">
+                                            <td th:each="column: ${row.column}" th:text="${column}" />
+                                        </tr>
+                                    </tbody>
+                                </table>
+
+                                <span class="pull-right" th:inline="text">Query time: [[${resultset.elapsedTime}]] ms</span>
+                            </div>
+                        </div>
+
+                        <!--Graph view-->
+                        <div id="graph" class="tab-pane fade in">
+                            <div class="row col-sm-12">
+                                <div class="row col-sm-3">
+                                    <div class="form-group">
+                                        <fieldset>
+                                            <legend>Type</legend>
+                                            <div>
+                                                <input type="radio" id="type_bar" name="type" value="bar" checked="checked"/>
+                                                <label class="checkbox-label">Bar</label>
+                                            </div>
+
+                                            <div>
+                                                <input type="radio" id="type_stacked_bar" name="type" value="bar"/>
+                                                <label class="checkbox-label">Stacked bar</label>
+                                            </div>
+
+                                            <div>
+                                                <input type="radio" id="type_line" name="type" value="line"/>
+                                                <label class="checkbox-label">Line</label>
+                                            </div>
+
+                                            <div>
+                                                <input type="radio" id="type_radar" name="type" value="pie"/>
+                                                <label class="checkbox-label">Pie</label>
+                                            </div>
+
+                                            <div>
+                                                <input type="radio" id="type_radar" name="type" value="radar"/>
+                                                <label class="checkbox-label">Radar</label>
+                                            </div>
+                                        </fieldset>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <fieldset>
+                                            <legend>Categories</legend>
+                                            <input type="radio" id="label_all" value="all" name="label"/>
+                                            <label class="checkbox-label">all</label>
+
+                                            <div th:each="header: ${resultset.header}">
+                                                <div th:if="${
+                                                     #strings.contains(resultset.className.get(header),'String') 
+                                                     || #strings.contains(resultset.className.get(header),'Date')
+                                                     || #strings.contains(resultset.className.get(header),'Time')}">
+
+                                                    <input type="radio" th:id="${'label_' + header}" th:value="${header}" name="label"/>
+                                                    <label class="checkbox-label" th:text="${header}"></label>
+
+                                                    <select 
+                                                        name="calendar" 
+                                                        th:id="${'calendar_' +  header}" 
+                                                        th:value="${header}"
+                                                        th:if="${#strings.contains(resultset.className.get(header),'Date') || #strings.contains(resultset.className.get(header),'Time')}" 
+                                                        style="background: transparent; border: 1px solid #D8D8D8;">
+
+                                                        <option value="full" selected>FULL</option>
+                                                        <option value="year">YEAR</option>
+                                                        <option value="month">MONTH</option>
+                                                        <option value="day">DAY</option>                                                    
+                                                    </select> 
+                                                </div>
+                                            </div>
+                                        </fieldset>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <fieldset>
+                                            <legend>Values</legend>
+                                            <div th:each="header: ${resultset.header}">
+                                                <div th:if="${
+                                                     not #strings.contains(resultset.className.get(header),'String')
+                                                     && not #strings.contains(resultset.className.get(header),'Date') 
+                                                     && not #strings.contains(resultset.className.get(header),'Time')}">
+
+                                                    <select 
+                                                        name="aggregation" 
+                                                        th:id="${'aggregation_' +  header}" 
+                                                        th:value="${header}" 
+                                                        style="background: transparent; border: 1px solid #D8D8D8;">
+
+                                                        <option th:value="sum" selected>SUM</option>
+                                                        <option th:value="count">COUNT</option>
+                                                        <option th:value="avg">AVG</option>
+                                                        <option th:value="max">MAX</option>
+                                                        <option th:value="min">MIN</option>                                                        
+                                                    </select> 
+
+                                                    <button class="btn btn-link btn-xs no-border" type="button" th:id="${'add_' + header}" name="metric" th:value="${header}"> 
+                                                        <span class="glyphicon glyphicon-plus-sign"></span>
+                                                    </button>
+
+                                                    <button class="btn btn-link btn-xs no-border" type="button" th:id="${'remove_' + header}" name="metric" th:value="${header}">
+                                                        <span class="glyphicon glyphicon-minus-sign"></span>
+                                                    </button> 
+
+                                                    <label class="checkbox-label" th:text="${header}"></label>
+                                                </div>
+                                            </div>
+                                        </fieldset>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <fieldset>
+                                            <legend>Configuration</legend>
+                                            <button class="btn btn-link btn-xs" type="button" name="rotation"> 
+                                                <span class="glyphicon glyphicon-refresh"></span> Datalabels rotation
+                                            </button>
+                                        </fieldset>
+                                    </div>
+                                </div>
+
+                                <div class="row col-sm-9">
+                                    <canvas th:id="workbenchChart" height="500" width="800"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <script th:inline="javascript">
+                        /*<![CDATA[*/
+                        var label = "";
+                        var labels = [];
+                        var resultset = /*[[${resultset.toJSONObject()}]]*/ "";
+                        var position = [];
+                        var rotation = 0;
+
+                        //Graph context. 
+                        var context = document.getElementById('workbenchChart');
+
+                        //Graph type. 
+                        var type = 'bar';
+
+                        //Graph data.
+                        var data = {
+                            labels: [],
+                            datasets: []
+                        };
+
+                        //Graph options.
+                        var options = {
+                            responsive: true,
+                            scales: {
+                                xAxes: [{
+                                        gridLines: {
+                                            display: false
+                                        },
+                                        ticks: {
+                                            beginAtZero: false,
+                                            fontColor: "#999999"
+                                        }
+                                    }],
+                                yAxes: [{
+                                        ticks: {
+                                            beginAtZero: false,
+                                            padding: 30
+                                        }
+                                    }]
+                            },
+                            plugins: {
+                                colorschemes: {
+                                    scheme: 'tableau.Tableau10'
+                                },
+                                datalabels: {
+                                    font: {
+                                        weight: 'bold'
+                                    },
+                                    formatter: function (value) {
+                                        return Math.round(value * 100) / 100;
+                                    },
+                                    rotation: function () {
+                                        return rotation;
+                                    }
+                                }
+                            },
+                            legend: {
+                                display: true,
+                                position: 'bottom'
+                            },
+                            layout: {
+                                padding: {
+                                    right: 50,
+                                    top: 70
+                                }
+                            }
+                        };
+
+                        //Build a chart instance.
+                        chart = chartBuilder();
+
+                        /**
+                         * Change chart type.
+                         */
+                        $("input[type=radio][name=type]").on('change', function () {
+                            let stacked = $(this).attr('id').includes('_stacked_');
+
+                            //Define the chart type. 
+                            type = $(this).attr('value');
+
+                            //Define if is a stacked chart. 
+                            options.scales.xAxes[0].stacked = stacked;
+                            options.scales.yAxes[0].stacked = stacked;
+
+                            //Destroy a chart. 
+                            chart.destroy();
+
+                            //Build a chart instance. 
+                            chart = chartBuilder();
+                        });
+
+                        /**
+                         * Change datalabels rotation.
+                         */
+                        $("button[name=rotation]").click(function () {
+                            rotation = (rotation === 0 ? 360 : rotation) - 30;
+
+                            //Destroy a chart. 
+                            chart.destroy();
+
+                            //Build a chart instance.
+                            chart = chartBuilder();
+                        });
+
+                        /**
+                         * Add chart label. 
+                         */
+                        $("input[type=radio][name=label],select[name=calendar]").on('change', function () {
+                            let uniqueLabels = [];
+                            let originalLabels = [];
+                            let calendar = $("#calendar_" + $(this).attr('value')).children(':selected').attr('value');
+
+                            //Resets labels. 
+                            labels = [];
+
+                            //Identifies the selected label.
+                            label = $(this).attr('value');
+
+                            //Idenfies if the selected label exists. 
+                            if (resultset[$(this).attr('value')]) {
+                                originalLabels = resultset[$(this).attr('value')];
+                            } else {
+                                originalLabels = Array(resultset[Object.keys(resultset)[0]].length).fill('ALL');
+                            }
+
+                            //Identifies unique and modified labels values.
+                            originalLabels.forEach((c) => {
+                                let label = c;
+
+                                //Identifies if should format a date label. 
+                                if (calendar) {
+                                    label = Calendar(label, calendar);
+                                }
+
+                                //Sets modified labels. 
+                                labels.push(label);
+
+                                //Sets unique labels. 
+                                if (!uniqueLabels.includes(label)) {
+                                    uniqueLabels.push(label);
+                                }
+                            });
+
+                            //Check a radio when a select is the entry point. 
+                            if ($(this).prop('nodeName').toUpperCase() === 'SELECT') {
+                                $("#label_" + $(this).attr('value')).prop("checked", true);
+                            }
+
+                            //Resets chart dataset properties, values and indexes.
+                            position.splice(0, position.length);
+                            chart.data.datasets.splice(0, chart.data.datasets.length);
+                            chart.data.labels = uniqueLabels;
+
+                            //Updates chart label.                            
+                            chart.update();
+                        });
+
+                        /**
+                         * Add/Removes chart datasets. 
+                         */
+                        $("button[name=metric]").click(function () {
+                            let aggregation = $("#aggregation_" + $(this).attr('value')).children(':selected').attr('value');
+                            let id = $(this).attr('value') + '_' + aggregation;
+
+                            if ($(this).attr('id').startsWith("add_")) {
+                                //Identifies if the aggregation was already in use. 
+                                if (!position.includes(id)) {
+                                    //Aggregates the values using the selected aggregation.
+                                    let summarizedValues = Aggregate(
+                                            aggregation,
+                                            labels,
+                                            resultset[$(this).attr('value')]);
+
+                                    //Identifies dataset position.
+                                    position.push(id);
+
+                                    //Adds values to the chart dataset.
+                                    chart.data.datasets.push(
+                                            {
+                                                label: $(this).attr('value') + ' (' + aggregation.toUpperCase() + ')',
+                                                data: summarizedValues,
+                                                fill: false,
+                                                datalabels: {
+                                                    align: 'end',
+                                                    anchor: 'end'
+                                                }
+                                            }
+                                    );
+                                }
+                            } else {
+                                let index = position.indexOf(id);
+                                //Removes a dataset from chart by position.
+                                if (index > -1) {
+                                    position.splice(index, 1);
+                                    chart.data.datasets.splice(index, 1);
+                                }
+                            }
+
+                            chart.update();
+                        });
+
+                        /**
+                         * Draw a chart. 
+                         * @returns {undefined}
+                         */
+                        function chartBuilder() {
+                            return new Chart(context, {
+                                type: type,
+                                data: data,
+                                options: options
+                            });
+                        }
+
+                        /**
+                         * Aggregated the values. 
+                         * 
+                         * @param {type} aggregation 
+                         * @param {type} labels
+                         * @param {type} values
+                         * @returns {Array|Aggregate.summarizedValues}
+                         */
+                        function Aggregate(aggregation, labels, values) {
+                            let occurrences = [];
+                            let uniqueLabels = [];
+                            let summarizedValues = [];
+                            for (var i = 0; i < labels.length; i++) {
+                                if (aggregation === 'sum' || aggregation === 'avg') {
+                                    let value = Math.round(values[i] * 100) / 100;
+                                    if (!uniqueLabels.includes(labels[i])) {
+                                        occurrences.push(1);
+                                        uniqueLabels.push(labels[i]);
+                                        summarizedValues.push(value);
+                                    } else {
+                                        occurrences[uniqueLabels.indexOf(labels[i])] += 1;
+                                        summarizedValues[uniqueLabels.indexOf(labels[i])] += value;
+                                    }
+                                } else if (aggregation === 'count') {
+                                    if (!uniqueLabels.includes(labels[i])) {
+                                        uniqueLabels.push(labels[i]);
+                                        summarizedValues.push(1);
+                                    } else {
+                                        summarizedValues[uniqueLabels.indexOf(labels[i])] += 1;
+                                    }
+                                } else if (aggregation === 'min') {
+                                    let value = Math.round(values[i] * 100) / 100;
+                                    if (!uniqueLabels.includes(labels[i])) {
+                                        uniqueLabels.push(labels[i]);
+                                        summarizedValues.push(value);
+                                    } else {
+                                        if (summarizedValues[uniqueLabels.indexOf(labels[i])] > value) {
+                                            summarizedValues[uniqueLabels.indexOf(labels[i])] = value;
+                                        }
+                                    }
+                                } else if (aggregation === 'max') {
+                                    let value = Math.round(values[i] * 100) / 100;
+                                    if (!uniqueLabels.includes(labels[i])) {
+                                        uniqueLabels.push(labels[i]);
+                                        summarizedValues.push(value);
+                                    } else {
+                                        if (summarizedValues[uniqueLabels.indexOf(labels[i])] < value) {
+                                            summarizedValues[uniqueLabels.indexOf(labels[i])] = value;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (aggregation === 'avg') {
+                                for (var i = 0, summary = summarizedValues.length; i < summary; i++) {
+                                    summarizedValues[i] = (summarizedValues[i] / occurrences[i])
+                                }
+                            }
+
+                            return summarizedValues;
+                        }
+
+                        /**
+                         * Format date. 
+                         * 
+                         * @param {type} date Date
+                         * @param {type} format Date format. 
+                         * @returns {Number|Calendar.full|Date}
+                         */
+                        function Calendar(date, format) {
+                            let full = new Date(date);
+                            let formated = full;
+
+                            if (format === 'year') {
+                                formated = full.getFullYear();
+                            } else if (format === 'month') {
+                                formated = (full.getMonth() + 1);
+                            } else if (format === 'day') {
+                                formated = full.getDate();
+                            } else {
+                                formated = date;
+                            }
+
+                            return formated;
+                        }
+
+                        /*]]>*/
+                    </script>
+                </div>
+            </div>       	
+    </body>
+</html>

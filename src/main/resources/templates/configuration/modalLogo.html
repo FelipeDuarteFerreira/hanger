@@ -41,7 +41,7 @@
                     });
                 </script>
                 <div class="modal-dialog modal-lg" role="document">
-                    <form method="POST" action="/customization/uploadFile" enctype="multipart/form-data" class="form-horizontal" id="form-upload-file">
+                    <form method="POST" th:action="@{/customization/uploadFile}" enctype="multipart/form-data" class="form-horizontal" id="form-upload-file">                        
                         <div class="modal-content">
                             <div class="modal-header">
                                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">

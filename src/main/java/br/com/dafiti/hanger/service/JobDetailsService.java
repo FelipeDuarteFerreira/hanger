@@ -29,6 +29,7 @@ import br.com.dafiti.hanger.model.JobDetails;
 import br.com.dafiti.hanger.model.JobStatus;
 import br.com.dafiti.hanger.option.Flow;
 import br.com.dafiti.hanger.option.Phase;
+import br.com.dafiti.hanger.option.Scope;
 import br.com.dafiti.hanger.option.Status;
 import java.security.Principal;
 import java.text.SimpleDateFormat;
@@ -54,18 +55,21 @@ public class JobDetailsService {
     private final JobBuildService jobBuildService;
     private final RetryService retryService;
     private final JobApprovalService jobApprovalService;
+    private final JobBuildStatusService jobBuildStatusService;
 
     @Autowired
     public JobDetailsService(
             JobBuildService jobBuildService,
             JobNotificationService jobNotificationService,
             RetryService retryService,
-            JobApprovalService jobApprovalService) {
+            JobApprovalService jobApprovalService,
+            JobBuildStatusService jobBuildStatusService) {
 
         this.jobBuildService = jobBuildService;
         this.jobNotificationService = jobNotificationService;
         this.retryService = retryService;
         this.jobApprovalService = jobApprovalService;
+        this.jobBuildStatusService = jobBuildStatusService;
     }
 
     /**
@@ -83,156 +87,197 @@ public class JobDetailsService {
         StringBuilder building = new StringBuilder();
         List<Job> notice = jobNotificationService.getNotice(job);
 
-        JobStatus jobStatus = job.getStatus();
+        if (!job.isEnabled()) {
+            if (!job.isEnabled()) {
+                status = Status.DISABLED;
+                building
+                        .append("Modified by ")
+                        .append(job.getModifiedBy())
+                        .append(" at ")
+                        .append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(job.getUpdatedAt()));
+            }
+        } else {
+            JobStatus jobStatus = job.getStatus();
 
-        if (jobStatus != null) {
-            JobBuild jobBuild = jobStatus.getBuild();
+            if (jobStatus != null) {
+                JobBuild jobBuild = jobStatus.getBuild();
 
-            if (jobBuild != null) {
-                int tolerance = job.getTolerance();
-                int days = Days.daysBetween(new LocalDate(jobBuild.getDate()), new LocalDate()).getDays();
-                boolean today = (days == 0);
-                boolean yesterday = (days == 1);
-                boolean eagerness = false;
+                if (jobBuild != null) {
+                    int tolerance = job.getTolerance();
+                    int days = Days.daysBetween(new LocalDate(jobBuild.getDate()), new LocalDate()).getDays();
+                    boolean today = (days == 0);
+                    boolean yesterday = (days == 1);
+                    boolean eagerness = false;
 
-                number = jobBuild.getNumber();
+                    number = jobBuild.getNumber();
 
-                if (!today) {
-                    //Identify if has tolerance. 
-                    if (tolerance != 0) {
-                        //Identify if the job is in the tolerance limit. 
-                        eagerness = (Days.daysBetween(
-                                new LocalDate(new DateTime(jobBuild.getDate()).plusHours(tolerance)),
-                                new LocalDate()).getDays() == 0);
+                    if (!today) {
+                        //Identify if has tolerance. 
+                        if (tolerance != 0) {
+                            //Identify if the job is in the tolerance limit. 
+                            eagerness = (Days.daysBetween(
+                                    new LocalDate(new DateTime(jobBuild.getDate()).plusHours(tolerance)),
+                                    new LocalDate()).getDays() == 0);
+                        }
                     }
-                }
 
-                //Identify if is a current day build.  
-                if (today || (yesterday && eagerness)) {
-                    switch (jobStatus.getFlow()) {
-                        case REBUILD:
-                            status = Status.REBUILD;
-                            phase = Phase.NONE;
-                            building
-                                    .append("Building, last build ")
-                                    .append((yesterday ? "( - " + tolerance + " hours) yesterday" : "today"))
-                                    .append(" at ")
-                                    .append(new SimpleDateFormat("HH:mm:ss").format(jobBuild.getDate()));
-                            break;
+                    //Identifies if the job match a time restriction. 
+                    if (!jobBuildStatusService.isTimeRestrictionMatch(job.getTimeRestriction())) {
+                        status = Status.RESTRICTED;
+                        phase = Phase.NONE;
+                        building.append("Last build at ")
+                                .append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(jobBuild.getDate()));
+                        //Identifies if is a current day build.  
+                    } else if (today || (yesterday && eagerness)) {
+                        switch (jobStatus.getFlow()) {
+                            case QUEUED:
+                            case REBUILD:
+                                status = Status.valueOf(jobStatus.getFlow().toString());
+                                phase = Phase.NONE;
+                                building
+                                        .append("Last build ")
+                                        .append((yesterday ? "( - " + tolerance + " hours) yesterday" : "today"))
+                                        .append(" at ")
+                                        .append(new SimpleDateFormat("HH:mm:ss").format(jobBuild.getDate()));
+                                break;
 
-                        case UNHEALTHY:
-                        case BLOCKED:
-                        case APPROVED:
-                        case DISAPPROVED:
-                        case ERROR:
+                            case UNHEALTHY:
+                            case BLOCKED:
+                            case APPROVED:
+                            case DISAPPROVED:
+                            case ERROR:
+                            case CHECKUP:
+                                status = Status.valueOf(jobStatus.getFlow().toString());
+                                building
+                                        .append((yesterday ? "( - " + tolerance + " hours ) Yesterday" : "Today"))
+                                        .append(" at ")
+                                        .append(new SimpleDateFormat("HH:mm:ss").format(jobBuild.getDate()));
+                                break;
+
+                            default:
+                                //Identifies if the build is running. 
+                                if (jobBuild.getPhase().equals(Phase.FINALIZED)
+                                        || (jobBuild.getStatus().equals(Status.FAILURE) || jobBuild.getStatus().equals(Status.ABORTED))) {
+
+                                    status = jobBuild.getStatus();
+
+                                    if (jobBuild.getStatus().equals(Status.SUCCESS)) {
+                                        //Identifies it was builded partially.
+                                        if (jobStatus.getScope().equals(Scope.PARTIAL)) {
+                                            status = Status.PARTIAL;
+                                        } else {
+                                            //Identifies if fail at least once today. 
+                                            if (jobStatus.getFailureTimestamp() != null) {
+                                                if (Days.daysBetween(new LocalDate(jobStatus.getFailureTimestamp()), new LocalDate()).getDays() == 0) {
+                                                    status = Status.UNSTABLE;
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    status = Status.RUNNING;
+                                }
+
+                                phase = jobBuild.getPhase();
+
+                                building
+                                        .append((yesterday ? "( - " + tolerance + " hours ) Yesterday" : "Today"))
+                                        .append(" at ")
+                                        .append(new SimpleDateFormat("HH:mm:ss").format(jobBuild.getDate()));
+                                break;
+                        }
+                    } else if (jobStatus.getFlow().equals(Flow.REBUILD)
+                            || jobStatus.getFlow().equals(Flow.QUEUED)) {
+                        status = Status.valueOf(jobStatus.getFlow().toString());
+                        phase = Phase.NONE;
+                        building
+                                .append("Last build at ")
+                                .append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(jobBuild.getDate()));
+                    } else {
+                        //Identify the last build flow. 
+                        if (!jobStatus.getFlow().equals(Flow.NORMAL)
+                                && !jobStatus.getFlow().equals(Flow.TRANSIENT)) {
+
                             status = Status.valueOf(jobStatus.getFlow().toString());
-                            building
-                                    .append((yesterday ? "( - " + tolerance + " hours ) Yesterday" : "Today"))
-                                    .append(" at ")
-                                    .append(new SimpleDateFormat("HH:mm:ss").format(jobBuild.getDate()));
-                            break;
+                        }
 
-                        default:
-                            //Identify if the build is running. 
-                            if (jobBuild.getPhase().equals(Phase.FINALIZED)
-                                    || (jobBuild.getStatus().equals(Status.FAILURE)
-                                    || jobBuild.getStatus().equals(Status.ABORTED))) {
-
-                                status = jobBuild.getStatus();
-                            } else {
-                                status = Status.RUNNING;
-                            }
-
-                            phase = jobBuild.getPhase();
-
-                            building
-                                    .append((yesterday ? "( - " + tolerance + " hours ) Yesterday" : "Today"))
-                                    .append(" at ")
-                                    .append(new SimpleDateFormat("HH:mm:ss").format(jobBuild.getDate()));
-                            break;
+                        //Identify the number of days, time and duration of the last build. 
+                        building
+                                .append(Math.abs(days))
+                                .append(" days ago at ")
+                                .append(new SimpleDateFormat("HH:mm:ss").format(jobBuild.getDate()));
                     }
-                } else if (jobStatus.getFlow().equals(Flow.REBUILD)) {
-                    status = Status.REBUILD;
+
+                    //Identify the duration of a running build. 
+                    if (jobBuild.getPhase().equals(Phase.STARTED)
+                            && (jobBuild.getDate() != null)) {
+
+                        Period period = new Period(new DateTime(jobBuild.getDate()), new DateTime(new Date()));
+
+                        building
+                                .append(" running for ")
+                                .append(StringUtils.leftPad(String.valueOf(period.getHours()), 2, "0"))
+                                .append(":")
+                                .append(StringUtils.leftPad(String.valueOf(period.getMinutes()), 2, "0"))
+                                .append(":")
+                                .append(StringUtils.leftPad(String.valueOf(period.getSeconds()), 2, "0"));
+                    } else {
+                        //Identify the duration of finished build. 
+                        try {
+                            building
+                                    .append(" in ")
+                                    .append(jobBuildService.findJobBuildTime(job, number));
+                        } catch (Exception ex) {
+                        }
+                    }
+                } else if (jobStatus.getFlow().equals(Flow.REBUILD)
+                        || jobStatus.getFlow().equals(Flow.QUEUED)) {
+                    //Identify the first build of a job. 
+                    status = Status.valueOf(jobStatus.getFlow().toString());
                     phase = Phase.NONE;
                     building
-                            .append("Building, last build at ")
-                            .append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(jobBuild.getDate()));
+                            .append("Building now");
+                } else if (!jobBuildStatusService.isTimeRestrictionMatch(job.getTimeRestriction())) {
+                    //Identifies if the job match a time restriction. 
+                    status = Status.RESTRICTED;
+                    phase = Phase.NONE;
+                    building.append("Never build");
                 } else {
-                    //Identify the last build flow. 
-                    if (!jobStatus.getFlow().equals(Flow.NORMAL)
-                            && !jobStatus.getFlow().equals(Flow.TRANSIENT)
-                            && !jobStatus.getFlow().equals(Flow.UPSTREAM)) {
-
-                        status = Status.valueOf(jobStatus.getFlow().toString());
-                    }
-
-                    //Identify the number of days, time and duration of the last build. 
-                    building
-                            .append(Math.abs(days))
-                            .append(" days ago at ")
-                            .append(new SimpleDateFormat("HH:mm:ss").format(jobBuild.getDate()));
-                }
-
-                //Identify the duration of a running build. 
-                if (jobBuild.getPhase().equals(Phase.STARTED)
-                        && (jobBuild.getDate() != null)) {
-
-                    Period period = new Period(new DateTime(jobBuild.getDate()), new DateTime(new Date()));
-
-                    building
-                            .append(" running for ")
-                            .append(StringUtils.leftPad(String.valueOf(period.getHours()), 2, "0"))
-                            .append(":")
-                            .append(StringUtils.leftPad(String.valueOf(period.getMinutes()), 2, "0"))
-                            .append(":")
-                            .append(StringUtils.leftPad(String.valueOf(period.getSeconds()), 2, "0"));
-                } else {
-                    //Identify the duration of finished build. 
                     try {
-                        building
-                                .append(" in ")
-                                .append(jobBuildService.findJobBuildTime(job, number));
+                        status = Status.valueOf(jobStatus.getFlow().toString());
                     } catch (Exception ex) {
                     }
                 }
-            } else if (jobStatus.getFlow().equals(Flow.REBUILD)) {
-                //Identify the first build of a job. 
-                status = Status.REBUILD;
-                phase = Phase.NONE;
-                building
-                        .append("Building now");
+
+                //The QUEUED and COMPLETED phases should be ignored. 
+                if (phase.equals(Phase.QUEUED)) {
+                    phase = Phase.STARTED;
+                } else if (phase.equals(Phase.COMPLETED)) {
+                    phase = Phase.FINALIZED;
+                }
+
+                //Identify the job flow. 
+                flow = jobStatus.getFlow();
+
+                //Identifi if the job scope. 
+                scope
+                        .append(job.isAnyScope() ? " FREE SCOPE " : "")
+                        .append(job.isRebuild() ? " REBUILD " + (job.isRebuildBlocked() ? "after all blockers ready " : "") + (job.getWait() != 0 ? "once every " + job.getWait() + " min" : "") : "")
+                        .append((job.getTimeRestriction() == null || job.getTimeRestriction().isEmpty()) ? "" : " " + job.getTimeRestrictionDescription().toLowerCase());
+
+                //Identify the number of build retries. 
+                if (retryService.exists(job)
+                        && retryService.get(job) != 0
+                        && job.getRetry() != 0) {
+
+                    building
+                            .append(" (")
+                            .append(retryService.get(job))
+                            .append(" of ")
+                            .append(job.getRetry())
+                            .append(" tries)");
+                }
             }
-
-            //The QUEUED and COMPLETED phases should be ignored. 
-            if (phase.equals(Phase.QUEUED)) {
-                phase = Phase.STARTED;
-            } else if (phase.equals(Phase.COMPLETED)) {
-                phase = Phase.FINALIZED;
-            }
-
-            //Identify the job flow. 
-            flow = jobStatus.getFlow();
-
-            //Identifi if the job scope. 
-            scope
-                    .append(jobStatus.getScope().toString())
-                    .append((job.isRebuild() ? ", Rebuildable" + (job.getWait() != 0 ? " once every " + job.getWait() + " min" : "") : ""));
-
-            //Identify the number of build retries. 
-            if (retryService.exists(job)
-                    && (job.getRetry() != 0)
-                    && (retryService.get(job) >= job.getRetry())) {
-
-                building
-                        .append(" ( ")
-                        .append(job.getRetry())
-                        .append("x )");
-            }
-        }
-
-        //Identify is the job is disabled.
-        if (!job.isEnabled()) {
-            status = Status.DISABLED;
         }
 
         //Identify if the job was never built.

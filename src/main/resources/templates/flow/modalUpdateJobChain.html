@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <!-- modal updateJobChain begin-->
+            <div class="modal fade" id="modalUpdateJobChain" tabindex="-1" role="dialog" aria-labelledby="modalUpdateJobChainLabel" th:fragment="updateJobChain">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                            <h4 th:inline="text" class="modal-title" id="modalUpdateJobChainLabel">[[${server.name}]] Jenkins server</h4>
+                        </div>
+                        <form id="updateJobChain" class="form-horizontal space-top" th:object="${job}" th:action="@{/job/update/chain}" method="post">
+                            <div class="modal-body">
+                                <input type="hidden" name="jobID" id="server" th:value="*{id}"/> 
+                                <input type="hidden" name="serverID" id="server" th:value="${server.id}"/> 
+                                <input type="hidden" name="children" id="children" th:value="${children}"/> 
+
+                                <div class="form-group">
+                                    <div class="col-sm-12">
+                                        <label>Jobs</label>
+                                        <select 
+                                            id="jobParentSelector"
+                                            class="selectpicker form-control col-xs-6" 
+                                            data-live-search="true" 
+                                            data-actions-box="true"
+                                            multiple="true" 
+                                            data-selected-text-format="count > 1">
+
+                                            <option th:each="job : ${jobs}" 
+                                                    th:value="${job}" 
+                                                    th:text="${job}">
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>    
+
+                                <div class="form-group">
+                                    <div class="col-sm-12">                                        
+                                        <textarea name="jobList" id="jobList" class="form-control" rows="5" placeholder="Comma-separated job list"></textarea>
+                                    </div>
+                                </div>
+
+                                <div th:if="${children}" class="form-group">
+                                    <div class="col-sm-12">
+                                        <fieldset>
+                                            <legend>
+                                                Options
+                                            </legend>
+                                        </fieldset> 
+
+                                        <label>
+                                            <input  
+                                                id="rebuildable" 
+                                                name="rebuildable"
+                                                type="checkbox"  
+                                                data-size="mini"
+                                                data-onstyle="default" 
+                                                th:checked="false"/> Make children rebuildable
+                                        </label>                                    
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+                                    <span aria-hidden="true"></span> Close
+                                </button>
+
+                                <button type="submit" name="partial_add_parent" class="btn btn-generic btn-sm">
+                                    <span aria-hidden="true"></span> Add
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <script th:inline="javascript">
+                    $(function () {
+                        $('#jobParentSelector').on('change', function (e) {
+                            $('#jobList').val($('#jobParentSelector').val());
+                        });
+                    });
+                </script>
+            </div>
+            <!-- modal updateJobChain end-->
+        </div>
+    </body>
+</html>

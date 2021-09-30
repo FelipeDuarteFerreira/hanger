@@ -6,23 +6,38 @@
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
         <div class="container-fluid main-content">
-            <table>
-                <tr>
-                    <th>
-                        <h3 class="page-title">Log</h3>
-                    </th>
-                </tr>            
-            </table>
 
-            <pre class="line-numbers no-border">
-                 <code th:class="${log.commandType} == 'SQL' ? language-sql : language-bash" th:text="${log.command}"></code>
-            </pre>            
+            <!--Command-->   
+            <div class="form-group space-top">
+                <fieldset>
+                    <legend>Command</legend>
+                    <div class="col-sm-12">
+                        <pre class="no-border">
+                            <code th:class="${log.commandType} == 'SQL' ? language-sql : language-bash" th:text="${log.command}"></code>
+                        </pre>  
+                    </div>
+                </fieldset>
+            </div>
+
+            <!--Result-->   
+            <div class="form-group">
+                <fieldset>
+                    <legend>Log</legend>
+                    <div class="col-sm-12">
+                        <pre class="line-numbers no-border">
+                            <code class="language-none" th:text="${log.log}"></code>
+                        </pre>
+                    </div>
+                </fieldset>
+            </div>
 
             <hr/>
 
-            <pre class="line-numbers">
-                 <code class="language-none" th:text="${log.log}"></code>
-            </pre>
+            <div class="form-group">  
+                <a href="javascript:history.back()" class="btn btn-link btn-sm">
+                    <span class="glyphicon glyphicon-backward" aria-hidden="true"></span> Go back
+                </a>
+            </div>
         </div>
         <script>
             Prism.plugins.NormalizeWhitespace.setDefaults({

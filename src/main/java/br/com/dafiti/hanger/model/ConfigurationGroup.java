@@ -54,7 +54,7 @@ public class ConfigurationGroup implements Serializable {
     }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long getId() {
         return id;
     }
@@ -103,5 +103,14 @@ public class ConfigurationGroup implements Serializable {
         }
 
         return Objects.equals(this.id, other.id);
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("ConfigurationGroup{id=").append(id);
+        sb.append(", name=").append(name);
+        sb.append('}');
+        return sb.toString();
     }
 }

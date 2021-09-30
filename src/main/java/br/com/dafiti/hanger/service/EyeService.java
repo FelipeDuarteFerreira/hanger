@@ -33,11 +33,12 @@ import br.com.dafiti.hanger.option.Status;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.Date;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.UUID;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Level;
 import org.json.JSONObject;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  *
@@ -52,6 +53,9 @@ public class EyeService {
     private final JobBuildPushService jobBuildPushService;
     private final JobCheckupService jobCheckupService;
     private final JobNotificationService jobNotificationService;
+    private final WorkbenchEmailService workbenchEmailService;
+
+    private static final Logger LOG = LogManager.getLogger(EyeService.class.getName());
 
     @Autowired
     public EyeService(
@@ -61,7 +65,8 @@ public class EyeService {
             JobBuildPushService jobBuildPushService,
             JobCheckupService jobCheckupService,
             SlackService slackService,
-            JobNotificationService jobNotificationService) {
+            JobNotificationService jobNotificationService,
+            WorkbenchEmailService workbenchEmailService) {
 
         this.jobService = jobService;
         this.jobStatusService = jobStatusService;
@@ -69,6 +74,7 @@ public class EyeService {
         this.jobBuildPushService = jobBuildPushService;
         this.jobCheckupService = jobCheckupService;
         this.jobNotificationService = jobNotificationService;
+        this.workbenchEmailService = workbenchEmailService;
     }
 
     /**
@@ -77,29 +83,28 @@ public class EyeService {
      * @param notificationPayload Notification Plugin information
      */
     @Async
-    @Transactional
     public void observer(String notificationPayload) {
+        UUID uuid = UUID.randomUUID();
         JSONObject notification = new JSONObject(notificationPayload);
         JSONObject buildNotification = notification.getJSONObject("build");
+
+        //Log the notification payload.
+        LOG.log(Level.INFO, "[" + uuid + "] Received notification payload: " + notificationPayload);
 
         //Identify if the job is observed.
         Job job = jobService.findByName(notification.getString("name"));
 
         if (job != null) {
-            boolean checkup = false;
-            boolean updateStatus = true;
-            String buildStatus = buildNotification.optString("status");
-            
-            // Display notificationPayload on console.
-            Logger.getLogger(EyeService.class.getName()).log(Level.INFO, "{0}: {1}", new Object[]{job.getName(), notificationPayload});
+            //Log the job found. 
+            LOG.log(Level.INFO, "[" + uuid + "] Job found " + job.getName());
 
             //Define the job build.
             JobBuild jobBuild = new JobBuild();
 
-            jobBuild.setNumber(buildNotification.getInt("number"));
+            jobBuild.setNumber(buildNotification.optInt("number"));
             jobBuild.setPhase(Phase.valueOf(buildNotification.optString("phase")));
-            jobBuild.setDate(buildNotification.getLong("timestamp"));
-            jobBuild.setStatus(buildStatus.isEmpty() ? Status.SUCCESS : Status.valueOf(buildNotification.optString("status")));
+            jobBuild.setDateFromTimestamp(buildNotification.optLong("timestamp"));
+            jobBuild.setStatus(buildNotification.optString("status").isEmpty() ? Status.SUCCESS : Status.valueOf(buildNotification.optString("status")));
             jobBuild.setJob(job);
 
             //Define the job status.
@@ -109,77 +114,101 @@ public class EyeService {
                 jobStatus = new JobStatus();
                 jobStatus.setScope(Scope.FULL);
                 jobStatus.setFlow(Flow.NORMAL);
+
+                //Defines a relation between a job and it status. 
+                jobStatus = jobStatusService.save(jobStatus);
+                job.setStatus(jobStatus);
+                job = jobService.save(job);
             }
+
+            //Log the job status.
+            LOG.log(Level.INFO, "[" + uuid + "] Job status " + jobStatus.toString());
+
+            //Define the job status update rule.  
+            boolean update;
 
             switch (jobBuild.getPhase()) {
                 case QUEUED:
-                    updateStatus = false;
+                    update = false;
                     break;
                 case STARTED:
-                    updateStatus = true;
+                    update = true;
+
+                    //Identifies if the STARTED status was received after a FINALIZED for the same execution.
+                    if (jobStatus.getBuild() != null) {
+                        update = jobStatus.getBuild().getNumber() != jobBuild.getNumber();
+
+                        if (!update) {
+                            LOG.log(Level.INFO, "[" + uuid + "] Status reversion attempt blocked");
+                        }
+                    }
+
                     break;
                 case COMPLETED:
-                    updateStatus = false;
+                    update = false;
                     break;
                 case FINALIZED:
-                    checkup = true;
-                    updateStatus = true;
+                    update = true;
                     break;
                 default:
-                    updateStatus = false;
+                    update = false;
                     break;
             }
 
             //Save the build.
             jobBuild = jobBuildService.save(jobBuild);
 
+            //Log the job build.
+            LOG.log(Level.INFO, "[" + uuid + "] Job build " + jobBuild.toString());
+
             //Add the trigger and status to the job. 
-            if (updateStatus) {
+            if (update) {
+                boolean healthy = true;
+
+                if (jobBuild.getPhase().equals(Phase.FINALIZED)
+                        && jobBuild.getStatus().equals(Status.SUCCESS)) {
+
+                    //Evaluates the job checkup. 
+                    healthy = jobCheckupService.evaluate(job, jobStatus.getScope());
+                }
+
                 jobStatus.setDate(new Date());
                 jobStatus.setBuild(jobBuild);
                 jobStatus.setScope(jobStatus.getScope() == null ? Scope.FULL : jobStatus.getScope());
-
-                //Identify job flow.
-                Flow flow = jobStatus.getFlow();
-
-                if (flow == null) {
-                    jobStatus.setFlow(Flow.NORMAL);
-                } else if (jobBuild.getPhase().equals(Phase.FINALIZED) && jobBuild.getStatus().equals(Status.SUCCESS)) {
-                    //Identify if should query the job result.
-                    if (checkup) {
-                        //Evaluate job checkup.
-                        if (jobCheckupService.evaluate(job, jobStatus.getScope())) {
-                            jobStatus.setFlow(Flow.NORMAL);
-                        } else {
-                            jobStatus.setFlow(Flow.UNHEALTHY);
-                        }
-                    }
-                } else {
-                    //Identify job as transiente.
-                    jobStatus.setFlow(Flow.TRANSIENT);
-                }
+                jobStatus.setFlow(healthy ? Flow.NORMAL : Flow.UNHEALTHY);
 
                 //Save the job status.
                 jobStatus = jobStatusService.save(jobStatus);
 
-                //Link job status with job.
-                job.setStatus(jobStatus);
-
-                //Update the job.
-                jobService.save(job);
+                //Log the job update.
+                LOG.log(Level.INFO, "[" + uuid + "] Job updated " + jobBuild.toString());
 
                 //Publish a job notification.
                 jobNotificationService.notify(job, true);
+
+                //Log the job notification.
+                LOG.log(Level.INFO, "[" + uuid + "] Job notification sent sucessfully");
 
                 //Identify if the job is finalized sucessfully. 
                 if (jobStatus.getFlow().equals(Flow.NORMAL)
                         && jobBuild.getPhase().equals(Phase.FINALIZED)
                         && jobBuild.getStatus().equals(Status.SUCCESS)) {
 
+                    //If job ran sucessfully send e-mails linked to it.
+                    workbenchEmailService.toEmail(job);
+
+                    //Log the e-mail send.
+                    LOG.log(Level.INFO, "[" + uuid + "] Job e-mails sent sucessfully");
+
+                    //Log the job children build push.
+                    LOG.log(Level.INFO, "[" + uuid + "] Job children build pushed");
+
                     //Push all jobs dependents on a job build. 
                     jobBuildPushService.push(job);
                 }
             }
+        } else {
+            LOG.log(Level.INFO, "[" + uuid + "] Rejected notification payload " + notificationPayload);
         }
     }
 }

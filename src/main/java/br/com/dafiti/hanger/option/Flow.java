@@ -29,12 +29,13 @@ package br.com.dafiti.hanger.option;
  */
 public enum Flow {
     NORMAL,
-    UPSTREAM,
     ERROR,
     REBUILD,
     TRANSIENT,
     UNHEALTHY,
     APPROVED,
     DISAPPROVED,
-    BLOCKED;
+    BLOCKED,
+    CHECKUP,
+    QUEUED;
 }

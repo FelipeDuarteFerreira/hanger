@@ -1,119 +1,11 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity">
     <head lang="en" th:replace="base/header :: head">
         <title>Hanger</title>
     </head>
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
         <div class="container-fluid main-content">
-            <script th:inline="javascript">
-                $(document).ready(function () {
-                    toastr.options = {
-                        "closeButton": true,
-                        "progressBar": true,
-                        "positionClass": "toast-top-right",
-                        "timeOut": "2500",
-                        "showEasing": "swing",
-                        "hideEasing": "linear",
-                        "showMethod": "fadeIn",
-                        "hideMethod": "fadeOut"
-                    };
-
-                    /**
-                     * Show wait panel.
-                     * @returns {undefined}
-                     */
-                    $(document).ajaxStart(function () {
-                        $("#modal_wait").css("display", "block");
-                    });
-
-                    /**
-                     * Hide wait panel.
-                     * @returns {undefined}
-                     */
-                    $(document).ajaxComplete(function () {
-                        $("#modal_wait").css("display", "none");
-                    });
-
-                    /**
-                     * Set header CSRF Token.
-                     * @returns {undefined}
-                     */
-                    $.ajaxSetup({
-                        headers: {'X-CSRF-Token': $('#_csrf').attr('content')}
-                    });
-
-                    /**
-                     * Subject subscription and unsubscription.
-                     * @returns {undefined}
-                     */
-                    $("[id^=subscribe_]").click(function () {
-                        var url;
-                        var subject = $(this).val();
-                        var subscription = $(this).prop("checked");
-
-                        if (subscription) {
-                            url = /*[[@{/subject/subscribe/}]]*/ "/subject/subscribe/";
-                        } else {
-                            url = /*[[@{/subject/unsubscribe/}]]*/ "/subject/unsubscribe/";
-                        }
-
-                        $.ajax({
-                            type: "POST",
-                            url: url,
-                            data: subject,
-                            contentType: "text/html",
-                            timeout: 30000,
-                            success: function (result) {
-                                if (subscription) {
-                                    toastr.success('Subscribed');
-                                } else {
-                                    toastr.success('Unsubscribed');
-                                }
-                            },
-                            error: function (xhr, status, error) {
-                                toastr.error('Subscription failure');
-                                alert("Subscription error " + xhr.responseText);
-                            }
-                        });
-                    });
-
-                    /**
-                     * Show subject details modal. 
-                     * @returns {undefined}
-                     */
-                    $("[id^=modal_subject_detail_]").click(function () {
-                        var url = /*[[@{/subject/modal/detail/}]]*/ "/subject/modal/detail/";
-                        var subject = $(this).val();
-
-                        $.ajax({
-                            type: "GET",
-                            url: url + subject,
-                            success: function (result) {
-                                $("#modalHolder").html(result);
-                                $("#modalJobDetails").modal({backdrop: 'static', keyboard: false});
-                            },
-                            error: function (e) {
-                                alert("Error loading subject details: " + e);
-                            }
-                        });
-                    });
-                });
-            </script>
-
-            <table>
-                <tr>
-                    <th>
-                        <h3 class="page-title">Subject</h3>
-                    </th>
-                    <th class="btn-action">
-                        <a th:href="@{'/subject/add/'}" title="Add Subject">
-                            <span class="glyphicon glyphicon-plus"></span>
-                        </a>
-                    </th>
-                </tr>            
-            </table>
-
             <div th:if="${ errorMessage != null }" class="form-group">
                 <div class="alert alert-danger" role="alert">
                     <span th:text="${errorMessage}"></span>
@@ -129,17 +21,18 @@
             </div> 
 
             <!--AJAX Parent modal --> 
-            <div id="modalHolder"/>
+            <div id="modalHolder"></div>
 
-            <table id="table" class="table table-hover">
+            <table id="table" class="table table-hover space-top">
                 <thead>
                     <tr>
-                        <th style="width:5%">#</th>
-                        <th style="width:80%">Subject</th>
-                        <th style="width:1%"><span class="glyphicon glyphicon-bell" title="NOTIFICATION"></span></th>
-                        <th style="width:1%"><span class="glyphicon glyphicon-pushpin" title="SUBSCRIPTION"></span></th>
-                        <th style="width:1%" class="no-sort"></th>
-                        <th style="width:1%" class="no-sort"></th>
+                        <th>#</th>
+                        <th style="width:30%">Subject</th>
+                        <th style="width:70%">Subscribers</th>
+                        <th><span class="glyphicon glyphicon-bell" title="Notification"></span></th>
+                        <th><span class="glyphicon glyphicon-thumbs-up" title="Subscription"></span></th>
+                        <th class="no-sort"></th>
+                        <th class="no-sort"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -155,8 +48,19 @@
                             </button>
                         </td>
                         <td>
+                            <div class="column" th:each="user : ${subject.user}">
+                                <p th:attr="data-letters=${user.firstName.substring(0, 1) + user.lastName.substring(0, 1)}" 
+                                   th:title="${user.firstName + ' ' + user.lastName}" 
+                                   class="text-center profile-icon profile-icon-indoor-sm" 
+                                   data-toggle="tooltip" 
+                                   data-placement="top" 
+                                   th:classappend="'profile-icon-color-' + ${ T(Math).abs( user.id % 5 ) }">
+                                </p>
+                            </div>
+                        </td>
+                        <td>
                             <div th:if="${subject.notified}">
-                                <span th:attr="title=${ not #lists.isEmpty(subject.channel) ?  'Channels: ' + subject.channel : 'Default channel' }"  
+                                <span th:attr="title=${ not #lists.isEmpty(subject.channel) ?  '[' + subject.channel + ']' : 'Default channel' }"  
                                       class="glyphicon glyphicon-bell">
                                 </span>
                             </div>
@@ -164,25 +68,16 @@
                         <td>
                             <th:block th:switch="${subject.mandatory}">
                                 <div th:case="true">
-                                    <label class="checkbox">
-                                        <input 
-                                            type="checkbox" 
-                                            name="mandatory"  
-                                            checked="true"
-                                            disabled="true"/>
-                                        <span class="checkmark" title="Everyone"></span>
-                                    </label>
                                 </div>
                                 <div th:case="false">
-                                    <label class="checkbox">
-                                        <input 
+                                    <label>
+                                        <input  
+                                            name="subscribe"
                                             type="checkbox" 
                                             th:id="${'subscribe_' + subject.id}" 
-                                            name="subscribe" 
                                             th:value="${subject.id}" 
                                             th:checked="${#lists.contains(subject.user, loggedIn)}"
                                             th:disabled="${!#authorization.expression('isAuthenticated()')}"/>
-                                        <span class="checkmark" th:attr="title=${#lists.size(subject.user) + ' subscriptions'}" ></span>
                                     </label>
                                 </div>
                             </th:block>
@@ -194,7 +89,8 @@
                         </td>
                         <td>
                             <div class="form-group">
-                                <a class="btn btn-xs btn-delete" data-toggle="modal" th:attr="data-target='#'+${subject.id}" href="">
+                                <a  th:if="${#authorization.expression('hasRole(''HERO'')')}"
+                                    class="btn btn-xs btn-delete" data-toggle="modal" th:attr="data-target='#'+${subject.id}" href="">
                                     <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete
                                 </a>
                             </div>
@@ -233,5 +129,99 @@
                 </button>
             </center>
         </div>
+        <script th:inline="javascript">
+            $(document).ready(function () {
+                toastr.options = {
+                    "closeButton": true,
+                    "progressBar": true,
+                    "positionClass": "toast-top-right",
+                    "timeOut": "2500",
+                    "showEasing": "swing",
+                    "hideEasing": "linear",
+                    "showMethod": "fadeIn",
+                    "hideMethod": "fadeOut"
+                };
+
+                /**
+                 * Show wait panel.
+                 * @returns {undefined}
+                 */
+                $(document).ajaxStart(function () {
+                    $("#modal_wait").css("display", "block");
+                });
+
+                /**
+                 * Hide wait panel.
+                 * @returns {undefined}
+                 */
+                $(document).ajaxComplete(function () {
+                    $("#modal_wait").css("display", "none");
+                });
+
+                /**
+                 * Set header CSRF Token.
+                 * @returns {undefined}
+                 */
+                $.ajaxSetup({
+                    headers: {'X-CSRF-Token': $('#_csrf').attr('content')}
+                });
+
+                /**
+                 * Subject subscription and unsubscription.
+                 * @returns {undefined}
+                 */
+                $("[id^=subscribe_]").change(function () {
+                    var url;
+                    var subject = $(this).val();
+                    var subscription = $(this).prop("checked");
+
+                    if (subscription) {
+                        url = /*[[@{/subject/subscribe/}]]*/ "/subject/subscribe/";
+                    } else {
+                        url = /*[[@{/subject/unsubscribe/}]]*/ "/subject/unsubscribe/";
+                    }
+
+                    $.ajax({
+                        type: "POST",
+                        url: url,
+                        data: subject,
+                        contentType: "text/html",
+                        timeout: 30000,
+                        success: function (result) {
+                            if (subscription) {
+                                toastr.success('Subscribed');
+                            } else {
+                                toastr.success('Unsubscribed');
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            toastr.error('Subscription failure');
+                            alert("Subscription error " + xhr.responseText);
+                        }
+                    });
+                });
+
+                /**
+                 * Show subject details modal. 
+                 * @returns {undefined}
+                 */
+                $("[id^=modal_subject_detail_]").click(function () {
+                    var url = /*[[@{/subject/modal/detail/}]]*/ "/subject/modal/detail/";
+                    var subject = $(this).val();
+
+                    $.ajax({
+                        type: "GET",
+                        url: url + subject,
+                        success: function (result) {
+                            $("#modalHolder").html(result);
+                            $("#modalJobDetails").modal({backdrop: 'static', keyboard: true});
+                        },
+                        error: function (e) {
+                            alert("Error loading subject details: " + e);
+                        }
+                    });
+                });
+            });
+        </script>
     </body>
 </html> 

@@ -58,7 +58,7 @@ public class RoleService {
     }
 
     /**
-     * Find a rola by name
+     * Find a role by name
      *
      * @param name Role name
      * @return Role

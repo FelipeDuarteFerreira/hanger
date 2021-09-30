@@ -3,121 +3,35 @@
     <head lang="en" th:replace="base/header :: head">
         <title>Hanger</title>
     </head>
+
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
-
         <div class="container-fluid main-content">
             <div class="tab-content">
-                <script th:inline="javascript">
-                    $(document).ready(function () {
-                        $("#search").focus();
-
-                        /**
-                         * Set header CSRF Token.
-                         * @returns {undefined}
-                         */
-                        $.ajaxSetup({
-                            headers: {'X-CSRF-Token': $('#_csrf').attr('content')}
-                        });
-
-                        /**
-                         * Define ajax start behavior. 
-                         * @returns {undefined}
-                         */
-                        $(document).ajaxStart(function () {
-                            $("#wait").css("display", "block");
-                            $("#search").prop("disabled", true);
-                        });
-
-                        /**
-                         * Define ajax complete behavior. 
-                         * @returns {undefined}
-                         */
-                        $(document).ajaxComplete(function () {
-                            $("#wait").css("display", "none");
-                            $("#search").prop("disabled", false);
-                        });
-
-                        /**
-                         * Trigger job details search on Enter click. 
-                         */
-                        $('#search').keyup(function (e) {
-                            if (e.keyCode === 13) {
-                                search($('#search').val());
-                            }
-                        });
-
-                        /**
-                         * Trigger job details search on search button click. 
-                         */
-                        $("#search-button").click(function () {
-                            search($('#search').val());
-                        });
-
-
-                        /**
-                         * Trigger job details search on history click.
-                         * @returns {undefined}
-                         */
-                        $("[id^=search_]").click(function () {
-                            search($(this).val());
-                        });
-
-                        /**
-                         * Search for job that match the search input value. 
-                         * @returns {undefined}
-                         */
-                        function search(search) {
-                            var url = /*[[@{/search/details/}]]*/ "/search/details/";
-                            var text = search;
-
-                            if (text !== "") {
-                                $.ajax({
-                                    type: "POST",
-                                    url: url,
-                                    data: text,
-                                    contentType: "text/html",
-                                    timeout: 30000,
-                                    success: function (result) {
-                                        $("#searchResultHolder").html(result);
-
-                                        $('.table').DataTable(
-                                                {
-                                                    "paging": false,
-                                                    "info": false,
-                                                    "searching": false,
-                                                    "order": [],
-                                                    "columnDefs": [{
-                                                            "targets": 'no-sort',
-                                                            "orderable": false
-                                                        }
-                                                    ]
-                                                });
-                                    },
-                                    error: function (e) {
-                                        alert("Fail loading job details " + e);
-                                    }
-                                });
-                            }
-                        }
-                    });
-                </script>
-
-                <table>
-                    <tr>
-                        <th>
-                            <h3 class="page-title" title="Type job name or alias">Search</h3>
-                        </th>
-                    </tr>            
-                </table>
-                
-                <div style="margin-top:10px">
+                <div class="space-top">
                     <div class="form-group">
-                        <input type="text" class="form-control" id="search"/>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="search"/>
                     </div>
-                    <button id="search-button" class="btn btn-generic" type="button">
+
+                    <button 
+                        id="search-button" 
+                        class="btn btn-generic" 
+                        type="button">
+
                         <span class="glyphicon glyphicon-search" aria-hidden="true"></span> Search
-                    </button>                    
+                    </button>     
+
+                    <button 
+                        id="wait" 
+                        type="button" 
+                        class="btn btn-space btn-default btn-sm pull-right" 
+                        style="display:none;">
+
+                        <img th:src="@{'/images/ajax-loader.gif'}"></img>
+                    </button>
                 </div>
 
                 <hr/>
@@ -126,7 +40,7 @@
                 <nav th:if="${not #lists.isEmpty(searches)}">
                     <ul class="pager">
                         <li th:each="search, searchStat : ${searches}">
-                            <button class="btn btn btn-default btn-xs search-history-button" 
+                            <button class="btn btn-default pager-item" 
                                     th:id="'search_' + ${searchStat.index}" 
                                     th:inline="text" 
                                     th:value="${search}">[[${search}]]</button>
@@ -134,16 +48,108 @@
                     </ul>
                 </nav>   
 
-                <!--Modal--> 
-                <div id="searchResultHolder"/>
-
-                <!--Loader-->
-                <center>
-                    <button id="wait" type="button" class="btn btn-default btn-sm" style="display:none;">
-                        <img th:src="@{'/images/ajax-loader.gif'}"></img>
-                    </button>
-                </center>
+                <!--Fragment--> 
+                <div id="fragmentJobDetailsHolder"></div>
             </div>
         </div>
+
+        <script th:inline="javascript">
+            $(document).ready(function () {
+                /**
+                 * Set header CSRF Token.
+                 * @returns {undefined}
+                 */
+                $.ajaxSetup({
+                    headers: {'X-CSRF-Token': $('#_csrf').attr('content')}
+                });
+
+                /**
+                 * Set the focus on search input.
+                 */
+                $("#search").focus();
+
+                /**
+                 * Define ajax start behavior. 
+                 * @returns {undefined}
+                 */
+                $(document).ajaxStart(function () {
+                    $("#wait").css("display", "block");
+                    $("#search").prop("disabled", true);
+                    $("#search-button").prop("disabled", true);
+                });
+
+                /**
+                 * Define ajax complete behavior. 
+                 * @returns {undefined}
+                 */
+                $(document).ajaxComplete(function () {
+                    $("#wait").css("display", "none");
+                    $("#search").prop("disabled", false);
+                    $("#search-button").prop("disabled", false);
+                });
+
+                /**
+                 * Trigger job details search on Enter click. 
+                 */
+                $('#search').keyup(function (e) {
+                    if (e.keyCode === 13) {
+                        search($('#search').val());
+                    }
+                });
+
+                /**
+                 * Trigger job details search on search button click. 
+                 */
+                $("#search-button").click(function () {
+                    search($('#search').val());
+                });
+
+
+                /**
+                 * Trigger job details search on history click.
+                 * @returns {undefined}
+                 */
+                $("[id^=search_]").click(function () {
+                    search($(this).val());
+                });
+
+                /**
+                 * Search for job that match the search input value. 
+                 * @returns {undefined}
+                 */
+                function search(search) {
+                    var url = /*[[@{/search/details/}]]*/ "/search/details/";
+
+                    if (search !== "") {
+                        $.ajax({
+                            type: "POST",
+                            url: url,
+                            data: search,
+                            contentType: "text/html",
+                            timeout: 30000,
+                            success: function (result) {
+                                $("#fragmentJobDetailsHolder").html(result);
+
+                                $('.table').DataTable(
+                                        {
+                                            "paging": false,
+                                            "info": false,
+                                            "searching": false,
+                                            "order": [],
+                                            "columnDefs": [{
+                                                    "targets": 'no-sort',
+                                                    "orderable": false
+                                                }
+                                            ]
+                                        });
+                            },
+                            error: function (e) {
+                                alert("Fail loading job details " + e);
+                            }
+                        });
+                    }
+                }
+            });
+        </script>
     </body>
 </html>

@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>        
+        <div class="container">
+            <!--Fragment-->
+            <div th:fragment="editJob">
+
+                <!--Jenkins server-->
+                <label>Server</label> 
+                <div class="form-group">
+                    <div class="col-sm-10">
+                        <input type="hidden" th:field="*{server}"/> 
+                        <input type="text" class="form-control" th:value="${job.server.name}" readonly="true"/>
+
+                        <div th:if="${not connected}" class="alert alert-danger" role="alert" style="margin-bottom: 0">
+                            <span>Not connected to Jenkins server</span>
+                        </div>
+                        <span th:if="${#fields.hasErrors('server')}" class="help-block" th:errors="*{server}"></span>
+                    </div>
+                </div>
+
+                <!--Name-->
+                <label>Name</label> 
+                <div class="form-group">
+                    <div class="col-sm-10">
+                        <div th:if="${ job.name != null }">
+                            <input type="text" maxlength="255" class="form-control" th:field="*{name}" th:readonly="${readOnly != null}"/>
+                        </div>
+                        <span th:if="${#fields.hasErrors('name')}" class="help-block" th:errors="*{name}"></span>
+                    </div>                    
+                </div>
+
+                <label>Alias</label>
+                <div class="form-group">
+                    <div class="col-sm-10">
+                        <input type="text" maxlength="255" class="form-control" th:field="*{alias}" placeholder="Alias"/>
+                        <span th:if="${#fields.hasErrors('alias')}" class="help-block" th:errors="*{alias}"></span>
+                    </div>
+                </div>
+
+                <label>Description</label> 
+                <div class="form-group">
+                    <div class="col-sm-10">
+
+                        <textarea class="form-control" rows="3" th:field="*{description}" placeholder="Description" maxlength="65000"></textarea>
+                    </div>
+                    <span th:if="${#fields.hasErrors('description')}" class="help-block" th:errors="*{description}"></span>
+                </div>
+
+                <label>Time restriction <span class="glyphicon glyphicon-info-sign" aria-hidden="true" title="Cron based build time restriction"></span></label>
+                <div class="form-group">
+                    <div class="col-sm-10">
+                        <input type="text" maxlength="255" class="form-control" th:field="*{timeRestriction}" placeholder="Cron expression"/>
+                        <span th:if="${#fields.hasErrors('timeRestriction')}" class="help-block" th:errors="*{timeRestriction}"></span>
+                        <div class="alert alert-light" role="alert" style="margin-bottom: 0">
+                            Sintaxe:
+                            <b>&lt;Seconds&gt; &lt;Minutes&gt; &lt;Hours&gt; &lt;Day of month&gt; &lt;Month&gt; &lt;Day of week&gt; [Year]</b> where, for instance,
+                            <b>* * 11-12 ? * * *</b> allows a job to be build at <b>every hour between 11 and 12</b>. For more details visit: <a href="http://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html" target="_blank">QUARTZ Cron Trigger Tutorial</a>
+                        </div>
+                    </div>
+                </div>
+
+                <label>Eagerness <span class="glyphicon glyphicon-info-sign" aria-hidden="true" title="Identifies that previous day executions, terminated within the tolerance period of hours, should be considered in the current day's data stream."></span></label>
+                <div class="form-group">
+                    <div class="col-sm-10">
+                        <input type="number" min="0" max="12" class="form-control" maxlength="1" th:field="*{tolerance}" required="false" placeholder="Eagerness"/>
+                        <span th:if="${#fields.hasErrors('tolerance')}" class="help-block" th:errors="*{tolerance}"></span>
+                    </div>
+                </div>
+
+                <label title="Minutes beetwen rebuild">Rebuild interval</label>
+                <div class="form-group">
+                    <div class="col-sm-10">
+                        <input type="number" min="0" max="720" class="form-control" maxlength="1" th:field="*{wait}" required="false" placeholder="Waiting time"/>
+                        <span th:if="${#fields.hasErrors('wait')}" class="help-block" th:errors="*{wait}"></span>
+                    </div>
+                </div>
+
+                <!--Subject modal-->                
+                <div class="modal fade" id="modalSubject" tabindex="-1" role="dialog" aria-labelledby="modalSubjectLabel">
+                    <div class="modal-dialog modal-lg" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                                <h4 class="modal-title" id="modalSubjectLabel">Subject</h4>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <div class="col-sm-12">
+                                        <select class="selectpicker form-control col-xs-6" 
+                                                data-live-search="true" 
+                                                data-actions-box="true"
+                                                name="subjects" 
+                                                id="subjects" 
+                                                multiple="true" 
+                                                data-selected-text-format="count > 3">
+                                            <option th:each="subject : ${subjects}" 
+                                                    th:value="${subject.id}" 
+                                                    th:text="${subject.name}">
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">                                
+                                <button type="button" class="btn btn-generic btn-sm" data-dismiss="modal">
+                                    <span aria-hidden="true"></span> Close
+                                </button>
+
+                                <button type="submit" name="partial_add_subject" class="btn btn-generic btn-sm">
+                                    <span aria-hidden="true"></span> Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div th:if="${not #lists.isEmpty(job.subject)}">  
+                    <label>Subject</label>
+                    <table class="table">
+                        <tr>
+                            <th style="width:5%">#</th>
+                            <th style="width:72.5%">Subject</th>
+                            <th></th>
+                        </tr>
+                        <tr th:each="subject, subjectStat : ${job.subject}">
+                            <input type="hidden" th:field="*{subject[__${subjectStat.index}__]}"/> 
+
+                            <td> 
+                                <span th:text="*{subject[__${subjectStat.index}__].id}"></span>
+                            </td>
+                            <td>
+                                <span th:text="*{subject[__${subjectStat.index}__].name}"></span>
+                            </td>
+                            <td>
+                                <button type="submit" name="partial_remove_subject" th:value="${subjectStat.index}" class="btn btn-delete btn-xs">
+                                    <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Remove
+                                </button>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <fieldset>
+                    <legend>
+                        Jenkins
+                    </legend>
+                </fieldset>
+
+                <label>Node <span class="glyphicon glyphicon-info-sign" aria-hidden="true" title="Assign node where this job will execute"></span></label>
+                <div class="form-group">
+                    <div class="col-sm-10">
+                        <input type="text" maxlength="255" class="form-control" th:field="*{node}" placeholder="Node"/>
+                        <span th:if="${#fields.hasErrors('node')}" class="help-block" th:errors="*{node}"></span>
+                    </div>
+                </div>
+
+                <label>Cron <span class="glyphicon glyphicon-info-sign" aria-hidden="true" title="Cron expression that defines when the job will be built"></span></label>
+                <div class="form-group">
+                    <div class="col-sm-10">
+                        <input type="text" maxlength="150" class="form-control" th:field="*{cron}" placeholder="Cron"/>
+                        <div id="divCronDescription" class="alert alert-warning" role="alert">
+                            <span id="cronDescription"></span>
+                        </div>
+                        <span th:if="${#fields.hasErrors('cron')}" class="help-block" th:errors="*{cron}"></span>
+                    </div>
+                </div>
+
+                <label>Blocking Jobs</label>
+                <div class="form-group">
+                    <div class="col-sm-10">
+                        <textarea 
+                            class="form-control" 
+                            rows="3" 
+                            placeholder="Blocking Jobs"
+                            th:field="*{blockingJobs}"
+                            maxlength="65000"></textarea>                           
+                        <span th:if="${#fields.hasErrors('blockingJobs')}" class="help-block" th:errors="*{blockingJobs}"></span>
+                    </div>
+                </div>
+
+                <div th:if="${not #lists.isEmpty(job.shellScript)}"> 
+                    <label>Shell Script</label>
+
+                    <div th:each="shellScript, shellScriptStat : ${job.shellScript}">
+                        <div class="form-group">
+                            <div class="col-sm-10">
+                                <textarea class="form-control shell-script" rows="6" th:field="*{shellScript[__${shellScriptStat.index}__]}" maxlength="65000"></textarea>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="col-sm-10"> 
+                                <button type="submit" name="partial_remove_job_shell_script" th:value="${shellScriptStat.index}" class="btn btn-delete btn-sm pull-right">
+                                    <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Remove
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div th:if="${not #lists.isEmpty(job.parent) || not #lists.isEmpty(children)}"> 
+                    <fieldset>
+                        <legend>
+                            Relationship
+                        </legend>
+                    </fieldset>                    
+
+                    <ul class="nav nav-pills">
+                        <li class="active" th:if="${not #lists.isEmpty(job.parent)}">
+                            <a data-toggle="tab" href="#parent">PARENT 
+                                <span class="badge" th:text="${#lists.size(job.parent)}"></span>
+                            </a>                                
+                        </li>
+                        <li th:classappend="${#lists.isEmpty(job.parent)} ? active : ''" th:if="${not #lists.isEmpty(children)}">
+                            <a data-toggle="tab" href="#child">CHILDREN 
+                                <span class="badge" th:text="${#lists.size(children)}"></span>
+                            </a>  
+                        </li>
+                    </ul>
+
+                    <div th:if="${not #lists.isEmpty(job.parent) || not #lists.isEmpty(children)}" class="tab-content">
+                        <div th:if="${not #lists.isEmpty(job.parent)}" id="parent" class="tab-pane fade in active space-top">          
+                            <table class="table">
+                                <tr>
+                                    <th style="width:5%">#</th>
+                                    <th style="width:2.5%"><span class="glyphicon glyphicon-pause" title="Blocker"></span></th>
+                                    <th style="width:10%">Server</th>
+                                    <th style="width:55%">Name</th>
+                                    <th style="width:2.5%"><span class="glyphicon glyphicon-calendar" title="Build history"></span></th>
+                                    <th style="width:5%">Scope</th>
+                                    <th></th>
+                                </tr>
+                                <tr th:each="parent, parentStat : ${job.parent}">
+                                    <input type="hidden" th:field="*{parent[__${parentStat.index}__].id}"/> 
+                                    <input type="hidden" th:field="*{parent[__${parentStat.index}__].job}"/> 
+                                    <input type="hidden" th:field="*{parent[__${parentStat.index}__].parent}"/> 
+
+                                    <td> 
+                                        <span th:text="*{parent[__${parentStat.index}__].parent.id}"></span>
+                                    </td>
+                                    <td>
+                                        <input  
+                                            id="blocker" 
+                                            name="blocker"
+                                            type="checkbox" 
+                                            th:field="*{parent[__${parentStat.index}__].blocker}" 
+                                            th:checked="*{parent[__${parentStat.index}__].blocker}"/>
+                                    </td>
+                                    <td th:text="*{parent[__${parentStat.index}__].parent.server.name}"></td>
+                                    <td><a class="link" th:text="*{parent[__${parentStat.index}__].parent.name}" th:href="@{'/job/view/' + *{parent[__${parentStat.index}__].parent.id}}" target="_blank"></a></td>
+                                    <td>
+                                        <a href="javascript:;" class="build-history" th:id="*{parent[__${parentStat.index}__].parent.id}">
+                                            +
+                                        </a>                          
+                                    </td>
+                                    <td>
+                                        <select class="selectpicker form-control low" 
+                                                data-style="btn btn-generic btn-xs" 
+                                                data-live-search="true" 
+                                                th:field="*{parent[__${parentStat.index}__].scope}" 
+                                                required="true">
+
+                                            <option th:each="scope : ${T(br.com.dafiti.hanger.option.Scope).values()}" 
+                                                    th:value="${scope}" 
+                                                    th:text="${scope}"
+                                                    th:if="${scope != T(br.com.dafiti.hanger.option.Scope).ANYONE}">
+                                            </option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <button type="submit" name="partial_remove_parent" th:value="${parentStat.index}" class="btn btn-delete btn-xs">
+                                            <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div th:if="${not #lists.isEmpty(children)}" id="child" class="tab-pane fade in space-top" th:classappend="${#lists.isEmpty(job.parent)} ? active : ''">
+                            <table class="table">
+                                <tr>
+                                    <th style="width:5%">#</th>
+                                    <th style="width:2.5%"><span class="glyphicon glyphicon-pause" title="Blocker"></span></th>
+                                    <th style="width:2.5%"><span class="glyphicon glyphicon-retweet" title="Rebuildable"></span></th>
+                                    <th style="width:10%">Server</th>
+                                    <th style="width:52.5%">Name</th>
+                                    <th style="width:2.5%"><span class="glyphicon glyphicon-calendar" title="Build history"></span></th>                                       
+                                    <th style="width:5%">Scope</th>
+                                    <th></th>
+                                </tr>
+                                <tr th:each="child, childStat : ${children}">
+                                    <td> 
+                                        <span th:text="${child.job.id}"></span>
+                                    </td>
+                                    <td>
+                                        <input  
+                                            id="blocker" 
+                                            name="blocker"
+                                            type="checkbox" 
+                                            th:checked="${child.blocker}"
+                                            disabled="true"/>
+                                    </td>
+                                    <td>
+                                        <input  
+                                            id="child_rebuild" 
+                                            name="child_rebuild"
+                                            type="checkbox" 
+                                            th:checked="${child.job.rebuild}"
+                                            disabled="true"/>
+                                    </td>
+                                    <td th:text="${child.job.server.name}"></td>
+                                    <td><a class="link" th:text="${child.job.name}" th:href="@{'/job/view/' + ${child.job.id}}" target="_blank"></a></td>
+                                    <td>
+                                        <a href="javascript:;" class="build-history" th:id="${child.job.id}">
+                                            +
+                                        </a>                         
+                                    </td>
+                                    <td>
+                                        <span th:text="${child.scope}"></span>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div th:if="${not #lists.isEmpty(job.checkup)}"> 
+                    <fieldset>
+                        <legend>
+                            Checkup
+                        </legend>
+                    </fieldset>
+                </div>
+
+                <div th:each="checkup, checkupStat : ${job.checkup}">
+                    <div class="panel-group" id="accordion">
+                        <div class="panel panel-default">
+                            <div class="panel-heading panel-heading-height">                                    
+                                <div th:if="*{checkup[__${checkupStat.index}__].id != null}">
+                                    <a 
+                                        data-toggle="collapse" 
+                                        data-parent="#accordion" 
+                                        th:href="'#check' + ${checkupStat.index}"
+                                        class="link">
+
+                                        <span th:text="*{checkup[__${checkupStat.index}__].name + ' > ' + ( checkup[__${checkupStat.index}__].prevalidation ? 'PRE_VALIDATION' : 'POST_VALIDATION' ) + ' > ' +  checkup[__${checkupStat.index}__].action}"
+                                              th:classappend="*{checkup[__${checkupStat.index}__].enabled ? '':'panel-heading-add-checkup'}"></span>
+                                        <span th:text="*{checkup[__${checkupStat.index}__].enabled ? '':'[Disabled]'}" 
+                                              class="panel-heading-add-checkup"></span>
+                                        <span class="glyphicon glyphicon-triangle-bottom pull-right small" 
+                                              aria-hidden="true"></span> 
+                                    </a> 
+                                </div>
+                                <div th:if="*{checkup[__${checkupStat.index}__].id == null}" class="panel-heading-add-checkup">
+                                    <span>ADD CHECKUP</span>
+                                    <span class="glyphicon glyphicon-plus pull-right small" aria-hidden="true"></span> 
+                                </div>
+                            </div>
+
+                            <div 
+                                th:id="'check' + ${checkupStat.index}" 
+                                class="panel-collapse collapse "
+                                th:classappend="*{checkup[__${checkupStat.index}__].id != null ? __${checkupStat.index}__ == __${expanded}__ ? 'in': '' : 'in'}">
+
+                                <div class="panel-body">
+                                    <input type="hidden" th:field="*{checkup[__${checkupStat.index}__].id}"/>          
+                                    <input type="hidden" th:field="*{checkup[__${checkupStat.index}__].job}"/>  
+                                    <input type="hidden" th:field="*{checkup[__${checkupStat.index}__].log}"/>
+
+                                    <!--Trigger modal-->  
+                                    <div class="modal fade" th:id="${checkupStat.index}" tabindex="-1" role="dialog" aria-labelledby="modalTrigger">
+                                        <div class="modal-dialog modal-lg" role="document">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                                                    <h4 class="modal-title" id="modalTriggerLabel">Trigger</h4>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <div class="form-group">
+                                                        <div class="col-sm-12">
+                                                            <select class="selectpicker form-control col-xs-6" 
+                                                                    data-live-search="true" 
+                                                                    data-actions-box="true"
+                                                                    name="triggers" 
+                                                                    id="triggers" 
+                                                                    multiple="true" 
+                                                                    data-selected-text-format="count > 3">
+
+                                                                <option th:each="trigger : ${triggers}" 
+                                                                        th:value="${trigger.name}" 
+                                                                        th:text="${trigger.name}">
+                                                                </option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">                                
+                                                    <button type="button" class="btn btn-generic btn-sm" data-dismiss="modal">
+                                                        <span aria-hidden="true"></span> Close
+                                                    </button>
+
+                                                    <button type="submit" th:value="${checkupStat.index}" name="partial_add_job_checkup_trigger" class="btn btn-generic btn-sm">
+                                                        <span aria-hidden="true"></span> Add
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>                         
+
+                                    <!--Checkup-->
+                                    <div class="form-group"> 
+                                        <div class="col-sm-10">
+                                            <label>ID</label>
+                                            <input type="text" class="form-control" maxlength="255" th:field="*{checkup[__${checkupStat.index}__].id}" required="true" placeholder="ID" disabled="true"/>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group"> 
+                                        <div class="col-sm-10">
+                                            <label>Name</label> 
+                                            <input 
+                                                type="text" 
+                                                class="form-control" 
+                                                maxlength="255" 
+                                                th:field="*{checkup[__${checkupStat.index}__].name}"                                                     
+                                                placeholder="Name"/>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group"> 
+                                        <div class="col-sm-10">
+                                            <label>Description</label> 
+                                            <textarea 
+                                                class="form-control" 
+                                                rows="5" 
+                                                th:field="*{checkup[__${checkupStat.index}__].description}" 
+                                                required="true" 
+                                                placeholder="Description of checkup" 
+                                                maxlength="65000"></textarea>                                                
+                                        </div>
+                                    </div>   
+
+                                    <div class="form-group">
+                                        <div class="col-sm-8">
+                                            <label>Connection</label> 
+                                            <select class="selectpicker form-control" data-live-search="true" th:field="*{checkup[__${checkupStat.index}__].connection.id}" required="true" placeholder="Connection">
+                                                <option th:each="connection : ${connections}" 
+                                                        th:value="${connection.id}" 
+                                                        th:text="${connection.name}">
+                                                </option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-sm-2">
+                                            <label>Scope</label> 
+                                            <select class="selectpicker form-control" data-live-search="true" th:field="*{checkup[__${checkupStat.index}__].scope}" required="true" placeholder="Scope">
+                                                <option th:each="scope : ${T(br.com.dafiti.hanger.option.Scope).values()}" 
+                                                        th:value="${scope}" 
+                                                        th:text="${scope}"
+                                                        th:if="${scope != T(br.com.dafiti.hanger.option.Scope).OPTIONAL}">
+                                                </option>
+                                            </select>
+                                        </div>
+                                    </div> 
+
+                                    <div class="form-group">
+                                        <div class="col-sm-10">
+                                            <label>SQL</label> 
+                                            <textarea class="form-control" rows="6" th:field="*{checkup[__${checkupStat.index}__].query}" required="true" placeholder="SQL select statement" maxlength="65000"></textarea>
+                                            <div class="alert alert-light" role="alert" style="margin-bottom: 0">
+                                                SQL parameters syntax:
+                                                <b>${{checkup ID}}</b> where a checkup ID should refer to check result that are replacing the variable, as: 
+                                                <b>${{checkup ID::{"default":10}}}</b> where <b>::</b> indicate that default value attribute of a variable are being suplied by <b>{"default":10}</b>                                            
+                                            </div>
+                                        </div>
+                                    </div>  
+
+                                    <div class="form-group">
+                                        <div class="col-sm-2">
+                                            <label>Condition</label>
+                                            <select class="selectpicker form-control" data-live-search="true" th:field="*{checkup[__${checkupStat.index}__].conditional}" required="true" placeholder="Operator">
+                                                <option th:each="conditional : ${T(br.com.dafiti.hanger.option.Conditional).values()}" 
+                                                        th:value="${conditional}" 
+                                                        th:text="${conditional}">
+                                                </option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-sm-4">    
+                                            <label title="${ID} to use a chekup result as threshold">Threshold</label>
+                                            <input type="text" class="form-control" maxlength="10" th:field="*{checkup[__${checkupStat.index}__].threshold}" required="true" placeholder="Threshold"/>
+                                        </div>
+
+                                        <div class="col-sm-4">    
+                                            <label>On fail</label> 
+                                            <select id="on-fail" class="selectpicker form-control" data-live-search="true" th:field="*{checkup[__${checkupStat.index}__].action}" required="true" placeholder="Action">
+                                                <option th:each="action : ${T(br.com.dafiti.hanger.option.Action).values()}" 
+                                                        th:value="${action}" 
+                                                        th:text="${action}">
+                                                </option>
+                                            </select>
+                                        </div>
+                                    </div> 
+
+                                    <!--Checkup options-->
+                                    <div>
+                                        <fieldset>
+                                            <legend>
+                                                Options
+                                            </legend>
+                                        </fieldset> 
+
+                                        <div class="form-group">  
+                                            <div class="col-sm-10">
+                                                <div class="btn-group btn-space">
+                                                    <label>
+                                                        <input  
+                                                            id="jobEnabled" 
+                                                            name="jobEnabled"
+                                                            type="checkbox"                                                             
+                                                            th:field="*{checkup[__${checkupStat.index}__].enabled}" 
+                                                            th:checked="*{checkup[__${checkupStat.index}__].enabled}"/> Enabled
+                                                    </label>
+                                                </div>
+
+                                                <div class="btn-group btn-space" th:if="${not #lists.isEmpty(job.parent)}">  
+                                                    <label>
+                                                        <input     
+                                                            id="prevalidation" 
+                                                            name="prevalidationEnabled"
+                                                            type="checkbox" 
+                                                            data-onstyle="default" 
+                                                            th:field="*{checkup[__${checkupStat.index}__].prevalidation}" 
+                                                            th:checked="*{checkup[__${checkupStat.index}__].prevalidation}"/> Prevalidate
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <hr/>
+
+                                    <div class="form-group">                                              
+                                        <div class="col-sm-10">   
+                                            <button type="submit" class="btn btn-delete btn-sm pull-right btn-space" name="partial_remove_job_checkup" th:value="${checkupStat.index}">
+                                                <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Remove
+                                            </button>
+
+                                            <button type="button" class="btn btn-generic btn-sm pull-right btn-space" data-toggle="modal" data-backdrop="static" th:attr="data-target='#' + ${checkupStat.index}">
+                                                <span class="glyphicon glyphicon-transfer" aria-hidden="true"></span> Add Trigger
+                                            </button>
+
+                                            <div th:if="${#authorization.expression('hasRole(''HERO'')')}">
+                                                <button type="submit" class="btn btn-generic btn-sm pull-right btn-space" name="partial_add_job_checkup_command" th:value="${checkupStat.index}">
+                                                    <span class="glyphicon glyphicon-flash" aria-hidden="true"></span> Add Command
+                                                </button>
+                                            </div>
+                                        </div>                                                                                      
+                                    </div>                            
+
+                                    <!--Checkup trigger-->
+                                    <div th:if="*{not #lists.isEmpty(checkup[__${checkupStat.index}__].trigger)}">   
+                                        <hr/>
+                                        <label>Trigger</label>
+                                        <table class="table">
+                                            <tr>
+                                                <th style="width:5%">#</th>
+                                                <th style="width:10%">Server</th>
+                                                <th style="width:62.5%">Name</th>
+                                                <th></th>
+                                            </tr>     
+                                            <tr th:each="trigger, triggetStat : *{checkup[__${checkupStat.index}__].trigger}">
+                                                <input type="hidden" th:field="*{checkup[__${checkupStat.index}__].trigger[__${triggetStat.index}__].id}"/>   
+                                                <input type="hidden" th:field="*{checkup[__${checkupStat.index}__].trigger[__${triggetStat.index}__].name}"/> 
+                                                <input type="hidden" th:field="*{checkup[__${checkupStat.index}__].trigger[__${triggetStat.index}__].server}"/> 
+
+                                                <td>
+                                                    <span th:text="${trigger.id}"></span>
+                                                </td>
+                                                <td th:text="${trigger.server.name}"></td>
+                                                <td th:text="${trigger.name}"></td>
+                                                <td>
+                                                    <button type="submit" name="partial_remove_job_checkup_trigger" th:value="${ checkupStat.index + ',' + triggetStat.index}" class="btn btn-delete btn-xs">
+                                                        <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Remove
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </div> 
+
+                                    <!--Checkup command-->
+                                    <div th:if="*{not #lists.isEmpty(checkup[__${checkupStat.index}__].command)}">   
+                                        <fieldset>
+                                            <legend>
+                                                Command
+                                            </legend>
+                                        </fieldset>
+
+                                        <div th:each="command, commandStat : *{checkup[__${checkupStat.index}__].command}">
+                                            <input type="hidden" th:field="*{checkup[__${checkupStat.index}__].command[__${commandStat.index}__].id}"/>
+                                            <div class="form-group">  
+                                                <div class="col-sm-10">    
+                                                    <label th:text="${ (commandStat.index + 1) + '°' }"></label> 
+                                                    <select id="on-fail" 
+                                                            class="selectpicker form-control" 
+                                                            data-live-search="true" 
+                                                            th:field="*{checkup[__${checkupStat.index}__].command[__${commandStat.index}__].commandType}" 
+                                                            required="true" 
+                                                            placeholder="Command Type"
+                                                            th:disabled="${!#authorization.expression('hasRole(''HERO'')')}">
+                                                        <option th:each="commandType : ${T(br.com.dafiti.hanger.option.CommandType).values()}" 
+                                                                th:value="${commandType}" 
+                                                                th:text="${commandType}">
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div class="form-group">   
+                                                <div class="col-sm-10">
+                                                    <textarea class="form-control" 
+                                                              rows="3" 
+                                                              th:field="*{checkup[__${checkupStat.index}__].command[__${commandStat.index}__].command}" 
+                                                              required="true" 
+                                                              placeholder="Command" 
+                                                              maxlength="65000"
+                                                              th:readonly="${!#authorization.expression('hasRole(''HERO'')')}"></textarea>
+                                                </div>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <div class="col-sm-10"> 
+                                                    <button type="submit" name="partial_remove_job_checkup_command" th:value="${ checkupStat.index + ',' + commandStat.index}" class="btn btn-delete btn-sm pull-right">
+                                                        <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Remove
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div> 
+
+                <div th:if="${not #lists.isEmpty(job.checkup)}">   
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Retries</label> 
+                            <input type="number"  min="0" max="9" class="form-control" maxlength="1" th:field="*{retry}" required="false" placeholder="Checkup retry"/>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <label>Approver</label>
+                            <select class="selectpicker form-control" data-live-search="true" th:field="*{approver}">
+                                <option value=""></option>
+                                <option 
+                                    th:each="user : ${users}"
+                                    th:value="${user.id}"
+                                    th:text="${user.fullName}">
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div th:if="${not #lists.isEmpty(job.email)}">
+                    <fieldset>
+                        <legend>
+                            E-mail
+                        </legend>
+                        <span>Send when this job finishes sucessfully</span>
+                    </fieldset>
+
+                    <br/>
+
+                    <table class="table">
+                        <tr>
+                            <th style="width:5%">#</th>
+                            <th style="width:50%">E-mail</th>
+                            <th style="width:22.5%">Owner</th>
+                            <th></th>
+                        </tr>
+                        <tr th:each="email, emailStat : ${job.email}">
+                            <input type="hidden" th:field="*{email[__${emailStat.index}__]}"/> 
+                            <td> 
+                                <span th:text="*{email[__${emailStat.index}__].id}"></span>
+                            </td>
+                            <td>
+                                <a class="link" 
+                                   th:text="*{email[__${emailStat.index}__].subject}" 
+                                   th:href="@{'/email/view/' + *{email[__${emailStat.index}__].id}}" 
+                                   target="_blank"></a>                                    
+                            </td>
+                            <td>
+                                <span th:text="*{email[__${emailStat.index}__].user.username}"></span>
+                            </td>                                
+                            <td>
+                                <button type="submit" name="partial_remove_email" th:value="${emailStat.index}" class="btn btn-delete btn-xs">
+                                    <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Remove
+                                </button>
+                            </td>
+                        </tr>
+                    </table>
+                </div>   
+
+                <div th:if="${not #lists.isEmpty(job.channel)}">
+                    <fieldset>
+                        <legend>
+                            Slack Notification
+                        </legend>
+                    </fieldset>
+
+                    <div class="alert alert-link" role="alert">
+                        <span>Job status and checkup failure notification on slack</span>
+                    </div>
+                    <!--Slack channel list-->   
+                    <table class="table">
+                        <tr>
+                            <th style="width:77.5%">Channel</th>
+                            <th></th>
+                        </tr>
+                        <tr th:each="slackChannel, slackChannelStat : ${job.channel}">
+                            <td> 
+                                <span th:text="${slackChannel}"></span>
+                            </td>
+                            <td>
+                                <button type="submit" name="partial_remove_slack_channel" th:value="${slackChannel}" class="btn btn-generic btn-xs">
+                                    <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Remove
+                                </button>
+                            </td>
+                        </tr>
+                    </table>  
+
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <div class="btn-group btn-space">
+                                <label>
+                                    <input  
+                                        id="slackJobNotification" 
+                                        name="slackJobNotification"
+                                        type="checkbox" 
+                                        th:field="*{notify}" 
+                                        th:checked="*{notify}"/> Build status  
+                                </label>
+                                <br />
+                                <label th:if="${not #lists.isEmpty(job.checkup)}">
+                                    <input  
+                                        id="slackCheckupNotification" 
+                                        name="slackCheckupNotification"
+                                        type="checkbox" 
+                                        th:field="*{checkupNotified}" 
+                                        th:checked="*{checkupNotified}"/> Checkup failure
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div> 
+
+                <!--Options-->
+                <fieldset>
+                    <legend>
+                        Options
+                    </legend>
+                </fieldset>   
+
+                <div class="form-group">
+                    <div class="col-sm-10">
+                        <div class="btn-group btn-space">
+                            <label>
+                                <input  
+                                    id="jobEnabled" 
+                                    name="jobEnabled"
+                                    type="checkbox" 
+                                    th:field="*{enabled}" 
+                                    th:checked="*{enabled}"/> Enabled
+                            </label>
+                        </div>
+
+                        <div class="btn-group btn-space">
+                            <label>
+                                <input  
+                                    id="rebuild" 
+                                    name="rebuild"
+                                    type="checkbox" 
+                                    th:field="*{rebuild}" 
+                                    th:checked="*{rebuild}"/> Rebuildable
+                            </label>
+                        </div>
+
+                        <div class="btn-group btn-space">
+                            <label>
+                                <input  
+                                    id="rebuild" 
+                                    name="rebuild"
+                                    type="checkbox" 
+                                    th:field="*{anyScope}" 
+                                    th:checked="*{anyScope}"/> Build on any parent scope
+                            </label>
+                        </div>
+                    </div>
+                </div>                        
+                <hr/>
+
+                <!--Buttons-->
+                <div class="form-group">
+                    <div class="col-sm-10">
+                        <!--E-mail-->
+                        <div class="btn-group pull-right btn-space dropup">
+                            <button type="button" class="btn btn-generic btn-sm" th:id="modal_add_email">                                         
+                                <span class="glyphicon glyphicon-envelope" aria-hidden="true"></span> E-mail
+                            </button>
+                        </div>
+
+                        <!--Slack-->
+                        <div class="btn-group pull-right btn-space dropup">
+                            <button type="button" class="btn btn-generic btn-sm" th:id="modal_add_slack_channel">                                         
+                                <span class="glyphicon glyphicon-bell" aria-hidden="true"></span> Slack
+                            </button>
+                        </div>
+
+                        <!--Checkup-->
+                        <button type="submit" class="btn btn-generic btn-sm pull-right btn-space" name="partial_add_job_checkup">
+                            <span class="glyphicon glyphicon-heart" aria-hidden="true"></span> Checkup
+                        </button>
+
+                        <!--Subject-->
+                        <button type="button" class="btn btn-generic btn-sm pull-right btn-space" data-toggle="modal" data-backdrop="static" data-target="#modalSubject">
+                            <span class="glyphicon glyphicon-tag" aria-hidden="true"></span> Subject
+                        </button>
+
+
+                        <!--Shell Script-->
+                        <div class="btn-group pull-right btn-space dropup">
+                            <button type="submit" class="btn btn-generic btn-sm" name="partial_add_job_shell_script">
+                                <span class="glyphicon glyphicon-console" aria-hidden="true"></span> Shell Script
+                            </button>
+
+                            <button type="button" class="btn btn-generic btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <span class="caret"></span>
+                                <span class="sr-only"></span>
+                            </button>
+
+                            <ul class="dropdown-menu">                                                                             
+                                <li th:each="template : ${templates}" th:id="'modal_add_shell_script_template_' + ${template.id}" th:value="${template.id}">
+                                    <a th:inline= "text" class="btn btn-sm pull-left">
+                                        <span  class="glyphicon glyphicon-console" aria-hidden="true"></span> [[${template.name}]]
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!--Parent--> 
+                        <div class="btn-group pull-right btn-space dropup">
+                            <button type="button" class="btn btn-generic btn-sm" th:id="'modal_add_parent_' + ${job.server.id}" th:value="${job.server.id}">
+                                <span class="glyphicon glyphicon-file" aria-hidden="true"></span> Parent
+                            </button>
+
+                            <button type="button" class="btn btn-generic btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <span class="caret"></span>
+                                <span class="sr-only"></span>
+                            </button>
+
+                            <ul class="dropdown-menu">                                                                             
+                                <li th:each="server : ${servers}" th:id="'modal_add_parent_' + ${server.id}" th:value="${server.id}">
+                                    <a th:inline= "text" class="btn btn-sm pull-left">
+                                        <span  class="glyphicon glyphicon-tasks" aria-hidden="true"></span> [[${server.name}]]
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!--Save-->
+                        <button type="submit" class="btn btn-generic btn-sm">
+                            <span class="glyphicon glyphicon-save" aria-hidden="true"></span> Save
+                        </button>
+                        <button id="modal_wait" type="button" class="btn btn-generic btn-sm pull-right btn-space" style="display:none;">
+                            <img th:src="@{'/images/ajax-loader.gif'}"></img>
+                        </button>
+                    </div>
+                </div>
+
+                <div th:if="*{ updatedAt != null }">
+                    <hr/>
+                    <!--Tracker-->
+                    <div class="form-group">                        
+                        <div class="col-sm-10">
+                            <label class="pull-right label-edit-information" th:inline="text">Updated by [[*{modifiedBy}]] at [[*{#dates.format(updatedAt, 'yyyy-MM-dd HH:mm:ss')}]]</label>
+                        </div>
+                    </div>
+                </div>                
+            </div>
+        </div>       	
+    </body>
+</html>

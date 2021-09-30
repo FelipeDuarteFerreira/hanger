@@ -30,5 +30,6 @@ package br.com.dafiti.hanger.option;
 public enum Scope {
     FULL,
     PARTIAL,
-    OPTIONAL;
+    OPTIONAL,
+    ANYONE;
 }

@@ -23,9 +23,12 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr th:each="status : ${connectionStatus}">                   
+                                    <tr th:each="status : ${connectionStatus}">    
                                         <td>
-                                            <img class="status" th:src="@{'/images/' + ${status.status} + '.png'}" th:attr="alt=${status.status}" th:title="${status.status}"></img>
+                                            <th:block th:switch="${status.status}">
+                                                <span th:case="${T(br.com.dafiti.hanger.option.Status).SUCCESS}" class="label label-success" th:attr="alt=${ status.status }" th:title="${status.status}" th:text="${status.status}"></span>
+                                                <span th:case="${T(br.com.dafiti.hanger.option.Status).FAILURE}" class="label label-danger" th:attr="alt=${ status.status }" th:title="${status.status}" th:text="${status.status}"></span>
+                                            </th:block>
                                         </td>
                                         <td th:text="${status.connection.name}">Name</td>                        
                                     </tr>

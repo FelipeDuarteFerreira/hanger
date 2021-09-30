@@ -6,51 +6,24 @@
     </head>
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
-        <div class="container-fluid main-content">
-            <table>
-                <tr>
-                    <th th:inline="text">
-                        <h3 class="page-title">[[${job.name}]]</h3>
-                    </th>
-
-                    <th class="btn-action">
-                        <a th:href="@{'/job/view/' + ${job.id}}" title="View">
-                            <span class="glyphicon glyphicon-eye-open"></span>
-                        </a>
-                    </th>
-
-                    <th class="btn-action">
-                        <a th:href="@{'/flow/job/' + ${job.id}}" title="Flow">
-                            <span class="glyphicon glyphicon-random"></span>
-                        </a>
-                    </th>
-
-                    <th class="btn-action">
-                        <a th:href="@{'/propagation/job/' + ${job.id}}" title="Propagation">
-                            <span class="glyphicon glyphicon-transfer"></span>
-                        </a>
-                    </th>
-                </tr>
-            </table>
-
-            <div class="space-top" th:if="${not #lists.isEmpty(job.checkup)}">
+        <div class="container-fluid main-content space-top">
+            <div  th:if="${not #lists.isEmpty(job.checkup)}">
                 <form class="form-horizontal" th:method="post" th:action="@{'/approval/submit/' + ${job.id}}" th:object="${jobApproval}">
                     <div>
                         <div class="form-group">
-                            <div class="col-sm-8">
-                                <label>Justification</label>
-                                <textarea class="form-control" th:field="*{description}" required="true" rows="3" minlength="15" maxlength="65000"></textarea>
+                            <div class="col-sm-12">
+                                <textarea class="form-control" th:field="*{description}" required="true" rows="5" minlength="15" maxlength="65000" placeholder="Why it should be approved or not?"></textarea>
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <div class="col-sm-8">
+                            <div class="col-sm-12">
                                 <button type="submit" class="btn btn-generic btn-sm" name="approve_job">
                                     <span class="glyphicon glyphicon-thumbs-up">
                                     </span> 
                                     Approve
                                	</button>
-                                <button type="submit" class="btn btn-delete btn-sm" name="disapprove_job">
+                                <button type="submit" class="btn btn-notice btn-sm" name="disapprove_job">
                                     <span class="glyphicon glyphicon-thumbs-down">
                                     </span> 
                                     Disapprove
@@ -59,17 +32,37 @@
                         </div>
                     </div>
                 </form>
+
+                <hr/>
+
                 <div th:each="checkup, checkupStat : ${job.checkup}" th:remove="tag">
-                    <div th:if="${not #lists.isEmpty(checkup.log)}">
-                        <label class="space-top" th:inline="text"><b>[[${ checkup.description }]]</b></label>
-                        <table th:id="'table_clean' + ${checkup.id}" class="table table-hover">
+                    <fieldset th:if="${not #lists.isEmpty(checkup.log)}" >
+                        <span class="label " 
+                              th:classappend="${checkup.enabled ? (checkup.getLastStatus() ? 'label-success' : 'label-danger') : 'label-default'}" 
+                              th:text="${ #strings.abbreviate(checkup.enabled ?  checkup.name : '[DISABLED] ' + checkup.name, 50)}"
+                              th:title="${checkup.name}"></span>
+
+                        <span class="label label-default" th:text="${checkup.action}"></span>
+                        <img th:src="@{'/images/' + ${checkup.prevalidation ? 'PRE_VALIDATION' : 'POST_VALIDATION'} + '.png'}" th:title="${checkup.prevalidation ? 'PRE_VALIDATION' : 'POST_VALIDATION'}"></img>
+
+                        <ul class="nav nav-pills pull-right">   
+                            <li>
+                                <a th:href="@{'/workbench/job/checkup/' + ${checkup.id}}" title="Workbench" target="_blank">
+                                    <span class="glyphicon glyphicon-play" aria-hidden="true"></span>
+                                </a>
+                            </li>
+                        </ul>
+
+                        <hr/>
+
+                        <table th:id="'table_paginated_clean_' + ${checkup.id}" class="table table-hover">
                             <thead>
                                 <tr>
                                     <th style="width:5%">#</th>
-                                    <th style="width:10%" class="img-sort">Status</th>
-                                    <th style="width:15%">Date</th>
-                                    <th style="width:15%">SQL</th>
-                                    <th style="width:10%">Result</th>
+                                    <th style="width:5%" class="img-sort">Status</th>
+                                    <th style="width:10%">Date</th>
+                                    <th style="width:25%">SQL</th>
+                                    <th style="width:15%">Result</th>
                                     <th style="width:10%" class="no-sort" ></th>
                                     <th style="width:10%" >Threshold</th>
                                     <th class="no-sort"></th>
@@ -79,11 +72,19 @@
                             <tbody>
                                 <tr th:each="checkupLog, checkupLogStat : ${checkup.log}" th:unless="${checkupLogStat.index >= 5}">
                                     <td th:text="${checkup.id}"></td>  
-                                    <td><img class="status" th:src="@{'/images/' + ${ checkupLog.success ? 'SUCCESS' : 'FAILURE' } + '.png' }" th:attr="title=${ checkupLog.success ? 'SUCCESS' : 'FAILURE' }"></img></td>                                 
+                                    <td>
+                                        <th:block th:switch="${checkupLog.success}">
+                                            <span th:case="true" class="label label-success" th:title="SUCCESS" th:text="SUCCESS"></span>
+                                            <span th:case="false" class="label label-danger" th:title="FAILURE" th:text="FAILURE"></span>
+                                        </th:block>
+                                    </td>
                                     <td th:text="${#dates.format(checkupLog.date, 'yyyy-MM-dd HH:mm:ss')}"></td>                                                      
                                     <td>
-                                        <div class="btn-group">
-                                            <button class="dropdown-toggle close" data-toggle="dropdown"><span class="caret"></span></button>
+                                        <span th:text="${#strings.length(checkupLog.query) > 65 ? #strings.substring(checkupLog.query,0,65) : checkupLog.query}"></span>                                
+                                        <div class="btn-group" 
+                                             th:if="${#strings.length(checkupLog.query) > 65}">                                    
+                                            <button class="dropdown-toggle close" 
+                                                    data-toggle="dropdown">...</button>
                                             <ul class="dropdown-menu">                                                
                                                 <li>
                                                     <pre class="line-numbers">
@@ -93,18 +94,42 @@
                                             </ul>
                                         </div>
                                     </td>  
-                                    <td th:text="${checkupLog.value}"></td>
+                                    <td>
+                                        <span th:text="${#strings.length(checkupLog.value) > 35 ? #strings.substring(checkupLog.value,0,35) : checkupLog.value}"></span>                                
+                                        <div class="btn-group" th:if="${#strings.length(checkupLog.value) > 35}">                                    
+                                            <button class="dropdown-toggle close" 
+                                                    data-toggle="dropdown">...</button>
+                                            <ul class="dropdown-menu">                                                
+                                                <li>
+                                                    <pre class="line-numbers">
+                                                    <code class="language-sql" th:text="${checkupLog.value}"></code>
+                                                    </pre>
+                                                </li>  
+                                            </ul>
+                                        </div>
+                                    </td>
                                     <td th:text="${checkupLog.conditional}"></td>
                                     <td th:text="${checkupLog.threshold}"></td>
-                                    <td>
-                                        <div th:if="${checkup.command}">
-                                            <table  class="table borderless">
+                                    <td>                                   
+                                        <div th:if="${not #lists.isEmpty(checkupLog.commandLog)}">
+                                            <table class="table borderless">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="width:10%" class="img-sort">Status</th> 
+                                                        <th class="no-sort">Command</th>
+                                                    </tr>
+                                                </thead>
                                                 <tbody>
-                                                    <tr th:each="commandLog, commandLogStat : ${checkupLog.commandLog}" th:remove="tag">
-                                                        <td style="width:5%"><img class="hanger-img-sm" th:src="@{'/images/' + ${ commandLog.success ? 'SUCCESS' : 'FAILURE' } + '.png' }" th:attr="alt=${ commandLog.success }"></img></td>
-                                                       	<td>
+                                                    <tr th:each="commandLog, commandLogStat : ${checkupLog.commandLog}"> 
+                                                        <td>
+                                                            <th:block th:switch="${commandLog.success}">
+                                                                <span th:case="true" class="label label-success" th:title="SUCCESS" th:text="SUCCESS"></span>
+                                                                <span th:case="false" class="label label-danger" th:title="FAILURE" th:text="FAILURE"></span>
+                                                            </th:block>
+                                                        </td>
+                                                        <td>
                                                             <a th:inline="text" th:href="@{'/checkup/log/' + ${commandLog.id}}">
-                                                                [[${ (commandLogStat.index + 1) + '. ' + commandLog.commandType}]]
+                                                                [[${ (commandLogStat.index + 1) + '° ' + commandLog.commandType}]]
                                                             </a>
                                                         </td>
                                                     </tr>
@@ -115,9 +140,23 @@
                                 </tr>
                             </tbody>
                         </table>
-                    </div>
+                    </fieldset>
                 </div>
             </div>
+
+            <hr/>  
+
+            <a th:href="@{'/job/view/' + ${job.id}}" th:title="${job.name}" class="btn btn-link btn-sm">
+                <span class="glyphicon glyphicon-file"></span> Job
+            </a>
+
+            <a th:href="@{'/flow/job/' + ${job.id}}" class="btn btn-link btn-sm">
+                <span class="glyphicon glyphicon-random"></span> Flow
+            </a>
+
+            <a th:href="@{'/propagation/job/' + ${job.id}}" class="btn btn-link btn-sm">
+                <span class="glyphicon glyphicon-transfer"></span> Propagation
+            </a>
         </div>
         <script>
             Prism.plugins.NormalizeWhitespace.setDefaults({

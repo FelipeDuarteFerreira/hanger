@@ -8,28 +8,6 @@
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
         <div class="container-fluid main-content">
-            <table>
-                <tr>
-                    <th>
-                        <h3 class="page-title">User</h3>
-                    </th>
-
-                    <th class="btn-action">
-                        <a th:href="@{'/user/add/'}" title="Add User">
-                            <span class="glyphicon glyphicon-plus"></span>
-                        </a>
-                    </th>
-
-                    <div sec:authorize="isAuthenticated()">
-                        <th class="btn-action">
-                            <a th:href="@{'/user/password/'}" title="Change password">
-                                <span class="glyphicon glyphicon-lock"></span>
-                            </a>
-                        </th>
-                    </div>
-                </tr>            
-            </table>
-
             <div th:if="${ errorMessage != null }" class="form-group">
                 <div class="alert alert-danger" role="alert">
                     <span th:text="${errorMessage}"></span>
@@ -42,9 +20,10 @@
                 </div>
             </div>
 
-            <div id="alert">
+            <div id="alert"></div>
 
-            </div>
+            <!--AJAX Parent modal --> 
+            <div id="modalHolder"></div>
 
             <script th:inline="javascript">
                 function modalDelete(id, username) {
@@ -93,6 +72,9 @@
                         <th style="width:13%">User</th>
                         <th style="width:23%">Name</th>
                         <th style="width:50%">E-mail</th>
+                        <th style="width:2.5%">
+                            <span class="glyphicon glyphicon-equalizer" title="Permissions"></span>
+                        </th>
                         <th style="width:2.5%">Role</th>
                         <th class="no-sort"></th>
                         <th class="no-sort"></th>
@@ -100,7 +82,7 @@
                 </thead>
                 <tbody>
                     <tr th:each="user : ${users}" 
-                        th:style="${! user.enabled} ? 'color: #767778' : ''">
+                        th:style="${! user.enabled} ? 'color: #bebebe' : ''">
 
                         <td th:text="${user.id}"></td>
                         <td th:text="${user.username}"></td>
@@ -110,11 +92,15 @@
                                 [[${#lists.contains(logged, user) ? '  online': '' }]]
                             </span>
                         </td>                            
-                        <td th:text="${user.email}"></td>                        
+                        <td th:text="${user.email}"></td>   
+                        <td>
+                            <span th:if="${#lists.size(user.privileges) > 0}" 
+                                  class="glyphicon glyphicon-equalizer"
+                                  th:title="${user.privileges}"></span>
+                        </td>
                         <td th:text="${user.roles[0].name}"></td>
                         <td>
                             <div 
-                                class="form-group" 
                                 th:if="${#authorization.expression('hasRole(''HERO'')') or user.username == #httpServletRequest.remoteUser}">
 
                                 <a th:href="@{'/user/edit/' + ${user.id}}" class="btn btn-generic btn-xs">
@@ -123,10 +109,7 @@
                             </div>
                         </td>
                         <td th:each="role : ${user.roles}">
-                            <div 
-                                class="form-group" 
-                                th:if="${#authorization.expression('hasRole(''HERO'')') and user.username != #httpServletRequest.remoteUser}">
-
+                            <div th:if="${#authorization.expression('hasRole(''HERO'')') and user.username != #httpServletRequest.remoteUser}">
                                 <a class="btn btn-xs btn-delete" data-toggle="modal" th:attr="onclick='modalDelete(' + ${user.id} + ',\'' + ${user.username} + '\');'" href="">
                                     <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>Delete
                                 </a>

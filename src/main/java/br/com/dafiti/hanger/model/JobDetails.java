@@ -27,6 +27,7 @@ import br.com.dafiti.hanger.option.Flow;
 import br.com.dafiti.hanger.option.Phase;
 import br.com.dafiti.hanger.option.Status;
 import java.util.List;
+import java.util.Objects;
 
 /**
  *
@@ -134,5 +135,28 @@ public class JobDetails {
 
     public void setApproval(boolean approval) {
         this.approval = approval;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(job);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj == null) {
+            return false;
+        }
+
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+
+        JobDetails other = (JobDetails) obj;
+        return Objects.equals(job.getId(), other.job.getId());
     }
 }

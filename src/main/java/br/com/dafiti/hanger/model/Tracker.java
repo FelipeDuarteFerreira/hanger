@@ -23,31 +23,42 @@
  */
 package br.com.dafiti.hanger.model;
 
+import br.com.dafiti.hanger.service.AuditorService;
 import java.sql.Timestamp;
 import javax.persistence.Column;
 import javax.persistence.EntityListeners;
 import javax.persistence.MappedSuperclass;
 import javax.persistence.PostPersist;
-import javax.persistence.PostRemove;
-import javax.persistence.PostUpdate;
+import javax.persistence.PreRemove;
+import javax.persistence.PreUpdate;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.stereotype.Component;
 
 /**
  *
  * @author Valdiney V GOMES
  */
+@Component
 @MappedSuperclass
 @EntityListeners({AuditingEntityListener.class})
-public abstract class Tracker {
+public class Tracker<T> {
 
     private Timestamp createdAt;
     private Timestamp updatedAt;
     private String createdBy;
     private String modifiedBy;
+
+    private static AuditorService auditorService;
+
+    @Autowired
+    public final void setAuditorService(AuditorService auditorService) {
+        this.auditorService = auditorService;
+    }
 
     @CreationTimestamp
     @Column(insertable = true, updatable = false)
@@ -85,5 +96,32 @@ public abstract class Tracker {
 
     public void setModifiedBy(String modifiedBy) {
         this.modifiedBy = modifiedBy;
+    }
+
+    @PostPersist
+    public void postPersist() {
+        auditorService.publish(
+                "ADD_" + ((T) this).getClass().getSimpleName().toUpperCase(),
+                new AuditorData()
+                        .addData("javascript", ((T) this).toString())
+                        .getData());
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        auditorService.publish(
+                "UPDATE_" + ((T) this).getClass().getSimpleName().toUpperCase(),
+                new AuditorData()
+                        .addData("javascript", ((T) this).toString())
+                        .getData());
+    }
+
+    @PreRemove
+    public void preRemove() {
+        auditorService.publish(
+                "DELETE_" + ((T) this).getClass().getSimpleName().toUpperCase(),
+                new AuditorData()
+                        .addData("javascript", ((T) this).toString())
+                        .getData());
     }
 }

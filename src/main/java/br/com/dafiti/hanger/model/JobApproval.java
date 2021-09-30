@@ -25,6 +25,7 @@ package br.com.dafiti.hanger.model;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.Objects;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -34,13 +35,14 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import org.json.JSONObject;
 
 /**
  *
  * @author guilherme.almeida
  */
 @Entity
-public class JobApproval extends Tracker implements Serializable {
+public class JobApproval extends Tracker<JobApproval> implements Serializable {
 
     private Long id;
     private Date date = new Date();
@@ -58,7 +60,7 @@ public class JobApproval extends Tracker implements Serializable {
     }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long getId() {
         return this.id;
     }
@@ -111,5 +113,40 @@ public class JobApproval extends Tracker implements Serializable {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 3;
+        hash = 37 * hash + Objects.hashCode(this.id);
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final JobApproval other = (JobApproval) obj;
+        if (!Objects.equals(this.id, other.id)) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public String toString() {
+        JSONObject object = new JSONObject();
+        object.put("id", id);
+        object.put("date", date);
+        object.put("description", description);
+        object.put("approved", approved);
+        return object.toString(2);
     }
 }

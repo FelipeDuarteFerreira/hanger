@@ -33,26 +33,29 @@ import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
-import org.hibernate.validator.constraints.NotEmpty;
+import org.json.JSONObject;
 
 /**
  *
  * @author Valdiney V GOMES
  */
 @Entity
-public class Connection extends Tracker implements Serializable {
+public class Connection extends Tracker<Connection> implements Serializable {
 
     private Long id;
     private String name;
+    private String description;
     private Database target;
     private String url;
     private String username;
     private String password;
+    private String className;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long getId() {
         return id;
     }
@@ -112,6 +115,23 @@ public class Connection extends Tracker implements Serializable {
         this.target = target;
     }
 
+    public String getClassName() {
+        return className;
+    }
+
+    public void setClassName(String className) {
+        this.className = className;
+    }
+    
+    @Column(columnDefinition = "text")
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     @Override
     public int hashCode() {
         int hash = 7;
@@ -136,5 +156,17 @@ public class Connection extends Tracker implements Serializable {
         }
 
         return Objects.equals(this.id, other.id);
+    }
+
+    @Override
+    public String toString() {
+        JSONObject object = new JSONObject();
+        object.put("id", id);
+        object.put("name", name);
+        object.put("target", target);
+        object.put("url", url);
+        object.put("username", username);
+        object.put("className", className);
+        return object.toString(2);
     }
 }

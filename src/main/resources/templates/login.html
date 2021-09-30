@@ -6,8 +6,23 @@
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
         <div class="container-fluid main-content">
+            
+            <div th:if="${ errorMessage != null }" class="form-group">
+                <br/>
+                <div class="alert alert-danger" role="alert">
+                    <span th:text="${errorMessage}"></span>
+                </div>  
+            </div>
+
+            <div th:if="${ successMessage != null }" class="form-group">
+                <br/>
+                <div class="alert alert-success" role="alert">
+                    <span th:text="${successMessage}"></span>
+                </div>
+            </div>            
+            
             <div class="row" style="margin-top:5%">
-                <img th:src="@{/images/lock.png}" style="display: block;margin-left: auto;margin-right: auto;width: 7.5%" alt="Hanger Security"></img>
+                <img th:src="@{/images/lock.png}" style="display: block;margin-left: auto;margin-right: auto;width: 6%" alt="Hanger Security"></img>
             </div>
             <div class="row" style="margin-top:20px">
                 <div class="col-xs-6 col-sm-6 col-md-6 col-sm-offset-2 col-md-offset-3">
@@ -70,8 +85,12 @@
                     <center>
                         <div class="row space-top" th:if="${not #lists.isEmpty(logged)}">
                             <legend>Join us</legend>
-                            <div class="column" th:each="principal : ${logged}">
-                                <p th:attr="data-letters=${principal.firstName.substring(0, 1) + principal.lastName.substring(0, 1)}" th:title="${principal.firstName + ' ' + principal.lastName}" class="text-center profile-icon profile-icon-sm"></p>
+                            <div class="column" th:each="user : ${logged}">
+                                <p th:attr="data-letters=${user.firstName.substring(0, 1) + user.lastName.substring(0, 1)}" 
+                                   th:title="${user.firstName + ' ' + user.lastName}" 
+                                   class="text-center profile-icon profile-icon-sm" 
+                                   th:classappend="'profile-icon-color-' + ${ T(Math).abs( user.id % 5 ) }">
+                                </p>
                             </div>
                         </div>
                     </center>

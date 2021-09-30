@@ -18,14 +18,14 @@
                             <input type="hidden" name="parentServer" id="parentServer" th:value="${server.id}"/> 
                             <div class="form-group">
                                 <div class="col-sm-12">
+                                    <label>Jobs</label>
                                     <select 
+                                        id="jobParentSelector"
                                         class="selectpicker form-control col-xs-6" 
                                         data-live-search="true" 
-                                        name="parentJobList" 
-                                        id="parentJobList" 
+                                        data-actions-box="true"
                                         multiple="true" 
-                                        data-selected-text-format="count > 3"
-                                        th:checked="${jobs}">
+                                        data-selected-text-format="count > 1">
 
                                         <option th:each="job : ${jobs}" 
                                                 th:value="${job}" 
@@ -33,13 +33,31 @@
                                         </option>
                                     </select>
                                 </div>
-                            </div>
+                            </div>    
+
                             <div class="form-group">
                                 <div class="col-sm-12">
-                                    <label class="checkbox">Import upstream project?
-                                        <input type="checkbox" name="parentUpstream" id="parentUpstream"/>
-                                        <span class="checkmark"></span>
-                                    </label>                                     
+                                    <textarea name="parentJobList" id="parentJobList" class="form-control" rows="5" placeholder="Comma-separated job list"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="col-sm-12">
+                                    <fieldset>
+                                        <legend>
+                                            Options
+                                        </legend>
+                                    </fieldset> 
+
+                                    <label>
+                                        <input  
+                                            id="parentUpstream" 
+                                            name="parentUpstream"
+                                            type="checkbox"  
+                                            data-size="mini"
+                                            data-onstyle="default" 
+                                            th:checked="true"/> Import upstream project
+                                    </label>                                    
                                 </div>
                             </div>
                         </div>
@@ -53,6 +71,13 @@
                             </button>
                         </div>
                     </div>
+                    <script th:inline="javascript">
+                        $(function () {
+                            $('#jobParentSelector').on('change', function (e) {
+                                $('#parentJobList').val($('#jobParentSelector').val());
+                            });
+                        });
+                    </script>
                 </div>
             </div>
         </div>

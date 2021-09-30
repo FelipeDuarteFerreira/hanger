@@ -38,22 +38,26 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 import java.util.stream.Collectors;
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;
 import org.apache.commons.exec.ExecuteWatchdog;
 import org.apache.commons.exec.PumpStreamHandler;
+import org.apache.logging.log4j.Logger;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -73,11 +77,13 @@ public class JobCheckupService {
     private final JenkinsService jenkinsService;
     private final JobService jobService;
     private final RetryService retryService;
-    private final JobCheckupLogService jobCheckupLogService;
     private final CommandLogService commandLogService;
     private final MailService mailService;
     private final JobStatusService jobStatusService;
     private final SlackService slackService;
+    private final TemplateService templateService;
+
+    private static final Logger LOG = LogManager.getLogger(JobBuildPushService.class.getName());
 
     @Autowired
     public JobCheckupService(
@@ -87,11 +93,11 @@ public class JobCheckupService {
             JenkinsService jenkinsService,
             JobService jobService,
             RetryService retryService,
-            JobCheckupLogService jobCheckupLogService,
             CommandLogService commandLogService,
             MailService mailService,
             JobStatusService jobStatusService,
-            SlackService slackService) {
+            SlackService slackService,
+            TemplateService templateService) {
 
         this.jdbcTemplate = jdbcTemplate;
         this.jobCheckupRepository = jobCheckupRepository;
@@ -99,11 +105,11 @@ public class JobCheckupService {
         this.jenkinsService = jenkinsService;
         this.jobService = jobService;
         this.retryService = retryService;
-        this.jobCheckupLogService = jobCheckupLogService;
         this.commandLogService = commandLogService;
         this.mailService = mailService;
         this.jobStatusService = jobStatusService;
         this.slackService = slackService;
+        this.templateService = templateService;
     }
 
     /**
@@ -122,7 +128,7 @@ public class JobCheckupService {
      * @return JobCheckup.
      */
     public JobCheckup load(Long id) {
-        return jobCheckupRepository.findOne(id);
+        return jobCheckupRepository.findById(id).orElse(null);
     }
 
     /**
@@ -140,7 +146,7 @@ public class JobCheckupService {
      * @param id JobCheckup ID.
      */
     public void delete(Long id) {
-        jobCheckupRepository.delete(id);
+        jobCheckupRepository.deleteById(id);
     }
 
     /**
@@ -179,126 +185,112 @@ public class JobCheckupService {
      */
     public boolean evaluate(Job job, boolean prevalidation, Scope scope) {
         boolean log;
-        boolean stop = false;
         boolean validated = true;
 
-        //Filter checkup by scope.
-        List<JobCheckup> checkups = job.getCheckup()
-                .stream()
-                .filter(x -> (x.getScope().equals(scope)))
-                .filter(x -> (x.isPrevalidation() == prevalidation))
-                .collect(Collectors.toList());
+        //Identifies if the job has checkup.
+        if (!job.getCheckup().isEmpty()) {
+            //Log the job status before checkup evaluation.
+            LOG.log(Level.INFO, "{} status before checkup evaluation", new Object[]{job.getName()});
 
-        //Identify if the job has checkups.
-        if (!checkups.isEmpty()) {
-            int retry = retryService.get(job);
+            //Identifies the checkup on the status. 
+            jobStatusService.updateFlow(job.getStatus(), Flow.CHECKUP);
 
-            for (JobCheckup checkup : checkups) {
-                //Identify the query scope and if it is enabled. 
-                if (checkup.isEnabled() && !stop) {
-                    //Run the query. 
-                    String value = this.executeQuery(checkup);
+            //Filters checkup by scope.
+            List<JobCheckup> checkups = job.getCheckup()
+                    .stream()
+                    .filter(x -> (x.getScope().equals(scope) || x.getScope().equals(Scope.ANYONE)))
+                    .filter(x -> (x.isPrevalidation() == prevalidation))
+                    .collect(Collectors.toList());
 
-                    //Compare value and threshold. 
-                    validated = this.check(checkup, value);
+            //Identifies if the job has checkups.
+            if (!checkups.isEmpty()) {
+                int retry = retryService.get(job);
 
-                    //Identify if is just a log. 
-                    log = checkup.getAction().equals(Action.LOG_AND_CONTINUE);
+                for (JobCheckup checkup : checkups) {
+                    //Identifies the query scope and if it is enabled. 
+                    if (checkup.isEnabled()) {
+                        JobCheckupLog checkupLog = new JobCheckupLog();
 
-                    //Identify if should retry.
-                    if (retry <= job.getRetry() || (retry == 1 && job.getRetry() == 0)) {
-                        //Log the checkup result. 
-                        JobCheckupLog jobCheckupLog = jobCheckupLogService.save(new JobCheckupLog(checkup, value, validated));
+                        checkupLog.setCheckup(checkup);
+                        checkupLog.setQuery(checkup.getQuery());
+                        checkupLog.setConditional(checkup.getConditional());
+                        checkupLog.setAction(checkup.getAction());
+                        checkupLog.setScope(checkup.getScope());
 
-                        //Identify if should execute something. 
-                        if (!validated && !log) {
-                            boolean result = false;
+                        //Runs the query. 
+                        String value = this.executeQuery(checkup);
 
-                            //Increase the retry counter.
-                            retryService.increase(job);
+                        //Compares value and threshold. 
+                        validated = this.check(checkup, value);
 
-                            //Execute the checkup command.
+                        //Identifies if is just a log. 
+                        log = checkup.getAction().equals(Action.LOG_AND_CONTINUE);
+
+                        //Identifies if should execute something. 
+                        if (!validated) {
+                            boolean commandResult = false;
+
+                            //Executes the checkup command.
                             for (Command command : checkup.getCommand()) {
-                                result = this.executeCommand(checkup, command, jobCheckupLog);
+                                commandResult = this.executeCommand(checkup, command, checkupLog);
 
-                                if (!result) {
+                                if (!commandResult) {
                                     break;
                                 }
                             }
 
-                            //Identify if should revalidate the checkup.
-                            if (result) {
-                                //Run the query. 
+                            //Identifies if should revalidate the checkup.
+                            if (commandResult) {
                                 value = this.executeQuery(checkup);
-
-                                //Compare value and threshold. 
                                 validated = this.check(checkup, value);
-
-                                //Define the success and value to the log. 
-                                jobCheckupLog.setSuccess(validated);
-                                jobCheckupLog.setValue(value);
                             }
+                        }
 
-                            //Identify if the status changed after the command execution.
-                            if (!validated) {
+                        //Defines the checkup status.                         
+                        checkupLog.setThreshold(this.getMacro(checkup.getThreshold()));
+                        checkupLog.setValue(value);
+                        checkupLog.setSuccess(validated);
+
+                        //Adds the log to the checkup.
+                        checkup.addLog(checkupLog);
+                        this.save(checkup);
+
+                        //Identifies if should retry.
+                        if (retry < (job.getRetry() == 0 ? 1 : job.getRetry())) {
+                            if (!validated && !log) {
+                                //Increases the retry counter.
+                                retryService.increase(job);
+
+                                //Executes the checkup related action. 
                                 this.executeAction(job, checkup);
-                                stop = true;
+                            }
+                        } else {
+                            retryService.remove(job);
+                        }
+
+                        //Verify if this check failed. 
+                        if (!validated) {
+                            this.notify(checkup, value);
+
+                            if (!log) {
+                                break;
                             }
                         }
 
-                        //Add the log to the checkup. 
-                        checkup.addLog(jobCheckupLog);
-                    }
-
-                    //Verify if this check failed. 
-                    if (!validated || (!validated && log)) {
-                        if (job.getApprover() != null) {
-                            Blueprint blueprint = new Blueprint(job.getApprover().getEmail(), "Nick Checkup failure", "checkupFailure");
-                            blueprint.addVariable("approver", job.getApprover().getFirstName());
-                            blueprint.addVariable("job", job.getName());
-                            blueprint.addVariable("checkup", checkup.getDescription());
-
-                            mailService.send(blueprint);
-                        }
-
-                        //Verify if this job has some notification to do.
-                        if (job.isNotify()) {
-                            StringBuilder message = new StringBuilder();
-
-                            message
-                                    .append(":broken_heart: ")
-                                    .append("*")
-                                    .append(job.getDisplayName())
-                                    .append("*’s")
-                                    .append(" checkup ")
-                                    .append("*")
-                                    .append(checkup.getDescription())
-                                    .append("*")
-                                    .append(" failed because the result was ")
-                                    .append("*")
-                                    .append(value)
-                                    .append("*")
-                                    .append(" but the expected is ")
-                                    .append(checkup.getConditional())
-                                    .append(" *")
-                                    .append(checkup.getThreshold())
-                                    .append("*");
-
-                            slackService.send(message.toString(), job.getChannel());
+                        //Checked will be always true when is LOG_AND_CONTINUE.
+                        if (log) {
+                            validated = true;
                         }
                     }
+                }
 
-                    //Checked will be always true when is LOG_AND_CONTINUE.
-                    if (log) {
-                        validated = true;
-                    }
+                if (validated) {
+                    retryService.remove(job);
                 }
             }
 
-            //Clear tries.
-            if (validated) {
-                retryService.remove(job);
-            }
+            //Log the job status after checkup evaluation.
+            LOG.log(Level.INFO, "{} status after checkup evaluation", new Object[]{job.getName()});
         }
 
         return validated;
@@ -315,14 +307,14 @@ public class JobCheckupService {
         switch (checkup.getAction()) {
             case REBUILD:
                 try {
-                    //Rebuild the job.
-                    jobStatusService.updateFlow(job.getStatus(), Flow.REBUILD);
-                    jenkinsService.build(job);
-                } catch (URISyntaxException | IOException ex) {
-                    Logger.getLogger(EyeService.class.getName()).log(Level.SEVERE, "Fail building job: " + job.getName(), ex);
-                }
+                //Rebuild the job.
+                jobStatusService.updateFlow(job.getStatus(), Flow.QUEUED);
+                jenkinsService.build(job);
+            } catch (Exception ex) {
+                LogManager.getLogger(EyeService.class).log(Level.ERROR, "Fail building job: " + job.getName(), ex);
+            }
 
-                break;
+            break;
             case REBUILD_MESH:
                 HashSet<Job> parent = jobService.getMeshParent(job);
                 jobService.rebuildMesh(job);
@@ -332,8 +324,8 @@ public class JobCheckupService {
                     for (Job meshParent : parent) {
                         jenkinsService.build(meshParent);
                     }
-                } catch (URISyntaxException | IOException ex) {
-                    Logger.getLogger(EyeService.class.getName()).log(Level.SEVERE, "Fail building job mesh: " + job.getName(), ex);
+                } catch (Exception ex) {
+                    LogManager.getLogger(EyeService.class).log(Level.ERROR, "Fail building job mesh: " + job.getName(), ex);
                 }
 
                 break;
@@ -355,8 +347,8 @@ public class JobCheckupService {
                             jenkinsService.build(jobTriggered);
                         }
                     }
-                } catch (URISyntaxException | IOException ex) {
-                    Logger.getLogger(EyeService.class.getName()).log(Level.SEVERE, "Fail building trigger: " + job.getName(), ex);
+                } catch (Exception ex) {
+                    LogManager.getLogger(EyeService.class).log(Level.ERROR, "Fail building trigger: " + job.getName(), ex);
                 }
 
                 break;
@@ -381,7 +373,11 @@ public class JobCheckupService {
             jdbcTemplate.setMaxRows(1);
 
             //Execute a query. 
-            value = jdbcTemplate.queryForObject(checkup.getQuery(), (ResultSet rs, int row) -> rs.getString(1));
+            value = jdbcTemplate
+                    .queryForObject(
+                            this.replaceParameter(checkup.getQuery()),
+                            (ResultSet rs, int row) -> rs.getString(1)
+                    );
         } catch (DataAccessException ex) {
             value = ex.getMessage();
         } finally {
@@ -389,7 +385,7 @@ public class JobCheckupService {
                 //Close the connection. 
                 jdbcTemplate.getDataSource().getConnection().close();
             } catch (SQLException ex) {
-                Logger.getLogger(JobCheckupService.class.getName()).log(Level.SEVERE, "Fail closing connection ", ex);
+                LOG.log(Level.ERROR, "Fail closing connection ", ex);
             }
         }
 
@@ -431,23 +427,30 @@ public class JobCheckupService {
 
         try {
             //Set a connection to database.
-            jdbcTemplate.setDataSource(connectionService.getDataSource(checkup.getConnection()));
+            jdbcTemplate
+                    .setDataSource(
+                            connectionService
+                                    .getDataSource(checkup.getConnection())
+                    );
 
             //Execute a query.
-            affected = jdbcTemplate.update(command.getCommand());
+            affected = jdbcTemplate
+                    .update(
+                            this.replaceParameter(command.getCommand())
+                    );
 
             //Log the affected rows.
             log = "Affected record[s]: " + affected;
         } catch (DataAccessException ex) {
             success = false;
             log = ex.getMessage();
-            Logger.getLogger(JobCheckupService.class.getName()).log(Level.SEVERE, "Fail executing SQL command ", ex);
+            LOG.log(Level.ERROR, "Fail executing SQL command ", ex);
         } finally {
             try {
                 //Close the connection.
                 jdbcTemplate.getDataSource().getConnection().close();
             } catch (SQLException ex) {
-                Logger.getLogger(JobCheckupService.class.getName()).log(Level.SEVERE, "Fail closing connection ", ex);
+                LOG.log(Level.ERROR, "Fail closing connection ", ex);
             }
 
             try {
@@ -463,7 +466,7 @@ public class JobCheckupService {
                     jobCheckupLog.addCommandLog(commandLog);
                 }
             } catch (Exception ex) {
-                Logger.getLogger(JobCheckupService.class.getName()).log(Level.SEVERE, "Fail recording sql command log " + ex.getMessage(), ex);
+                LOG.log(Level.ERROR, "Fail recording sql command log " + ex.getMessage(), ex);
             }
         }
 
@@ -493,8 +496,11 @@ public class JobCheckupService {
             tmp.setWritable(true);
 
             //Write shell command to sh file.
-            try ( FileWriter writer = new FileWriter(tmp)) {
-                writer.write(command.getCommand().replaceAll("\r", ""));
+            try (FileWriter writer = new FileWriter(tmp)) {
+                writer
+                        .write(
+                                this.replaceParameter(command.getCommand()).replaceAll("\r", "")
+                        );
             }
 
             //Parse the command to run.
@@ -526,7 +532,7 @@ public class JobCheckupService {
         } catch (IOException ex) {
             success = false;
             log = ex.getMessage();
-            Logger.getLogger(JobCheckupService.class.getName()).log(Level.SEVERE, "Fail executing shell command " + ex.getMessage(), ex);
+            LOG.log(Level.ERROR, "Fail executing shell command " + ex.getMessage(), ex);
         } finally {
             try {
                 //Define the command log.
@@ -541,7 +547,7 @@ public class JobCheckupService {
                     jobCheckupLog.addCommandLog(commandLog);
                 }
             } catch (Exception ex) {
-                Logger.getLogger(JobCheckupService.class.getName()).log(Level.SEVERE, "Fail recording shell command log " + ex.getMessage(), ex);
+                LOG.log(Level.ERROR, "Fail recording shell command log " + ex.getMessage(), ex);
             }
         }
 
@@ -564,21 +570,24 @@ public class JobCheckupService {
         //Remove white spaces. 
         value = (value == null) ? "" : value.trim();
         threshold = (threshold == null) ? "" : threshold.trim();
-        threshold = this.getMacro(threshold);        
+        threshold = this.getMacro(threshold);
 
         //Try to convert the value to float. 
         try {
             finalValue = Float.parseFloat(value);
         } catch (NumberFormatException ex) {
-            Logger.getLogger(JobCheckupService.class.getName()).log(Level.SEVERE, "Fail converting value " + value + " to float", ex);
+            LOG.log(Level.ERROR, "Fail converting value " + value + " to float", ex);
         }
 
         //Try to convert the threshold to float. 
         try {
             finalThreshold = Float.parseFloat(threshold);
         } catch (NumberFormatException ex) {
-            Logger.getLogger(JobCheckupService.class.getName()).log(Level.SEVERE, "Fail converting threshold " + threshold + " to float", ex);
+            LOG.log(Level.ERROR, "Fail converting threshold " + threshold + " to float", ex);
         }
+
+        //Log the checkup value and threshold.
+        LOG.log(Level.INFO, "Checkup {} evaluated with value {} and threshold {}", new Object[]{checkup.getName(), finalValue, finalThreshold});
 
         //Check if the threshold is numeric.
         if (finalValue != null && finalThreshold != null) {
@@ -609,9 +618,9 @@ public class JobCheckupService {
 
         return checked;
     }
-    
+
     /**
-     * Identify if threshold is a macro.
+     * Identify if the threshold is a macro.
      *
      * @param threshold String
      * @return String macro value or threshold itself value.
@@ -623,18 +632,105 @@ public class JobCheckupService {
             String id = threshold.replaceAll("[^\\d.]", "");
 
             if (!id.isEmpty()) {
-                //Load a checkup by id.
                 JobCheckup checkupRelation = this.load(Long.valueOf(id));
 
                 if (checkupRelation != null) {
-                    //Find the checkup threshold value.
                     if (!checkupRelation.getLog().isEmpty()) {
-                        threshold = checkupRelation.getLog().get(checkupRelation.getLog().size() - 1).getValue();
+                        //Identifies the last checkup value evaluated.
+                        threshold = checkupRelation.getLog()
+                                .stream()
+                                .max(Comparator.comparing(JobCheckupLog::getDate))
+                                .get()
+                                .getValue();
                     }
                 }
             }
         }
 
         return threshold;
+    }
+
+    /**
+     * Replace template parameters.
+     *
+     * @param template String
+     * @return String Replaced template.
+     */
+    private String replaceParameter(String template) {
+        JSONArray values = new JSONArray();
+        Map<String, Map<String, String>> parameters = templateService.getParameters(template);
+
+        if (!parameters.isEmpty()) {
+            parameters.entrySet().forEach(entry -> {
+                String id = entry.getValue().get("name");
+                String value = entry.getValue().get("default");
+
+                JobCheckup checkup = this.load(Long.valueOf(id));
+
+                if (checkup != null) {
+                    if (!checkup.getLog().isEmpty()) {
+                        value = checkup.getLog()
+                                .stream()
+                                .max(Comparator.comparing(JobCheckupLog::getDate))
+                                .get()
+                                .getValue();
+                    }
+                }
+                values.put(
+                        new JSONObject()
+                                .put("name", entry.getKey())
+                                .put("value", value)
+                );
+            });
+
+            template = templateService.setParameters(template, values);
+        }
+
+        return template;
+    }
+
+    /**
+     * Checkup failure notification.
+     *
+     * @param checkup Checkup
+     * @param value Evaluated value
+     */
+    public void notify(JobCheckup checkup, String value) {
+        Job job = checkup.getJob();
+
+        //Identifies if the job has approver. 
+        if (job.getApprover() != null) {
+            Blueprint blueprint = new Blueprint(job.getApprover().getEmail(), "Hanger Checkup failure", "checkupFailure");
+            blueprint.addVariable("approver", job.getApprover().getFirstName());
+            blueprint.addVariable("job", job.getName());
+            blueprint.addVariable("checkup", checkup.getDescription());
+
+            mailService.send(blueprint, checkup.getJob().getName());
+        }
+
+        //Identifies if checkup notification is enabled.
+        if (job.isCheckupNotified()) {
+            StringBuilder message = new StringBuilder();
+
+            message
+                    .append(":syringe: *")
+                    .append(job.getDisplayName())
+                    .append("* > *")
+                    .append(checkup.getDescription())
+                    .append("* > ")
+                    .append(checkup.isPrevalidation() ? "PRE_VALIDATION" : "POST_VALIDATION")
+                    .append(" > ")
+                    .append(checkup.getAction())
+                    .append(" > ")
+                    .append("failed because the result was *")
+                    .append(value)
+                    .append("* but the expected is ")
+                    .append(checkup.getConditional())
+                    .append(" *")
+                    .append(checkup.getThreshold())
+                    .append("*");
+
+            slackService.send(message.toString(), job.getChannel());
+        }
     }
 }

@@ -23,9 +23,12 @@
  */
 package br.com.dafiti.hanger.service;
 
+import br.com.dafiti.hanger.model.JobBuild;
 import br.com.dafiti.hanger.model.JobStatus;
 import br.com.dafiti.hanger.option.Flow;
+import br.com.dafiti.hanger.option.Status;
 import br.com.dafiti.hanger.repository.JobStatusRepository;
+import java.util.Date;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -44,11 +47,32 @@ public class JobStatusService {
     }
 
     public JobStatus save(JobStatus jobStatus) {
+        boolean failure = false;
+
+        switch (jobStatus.getFlow()) {
+            case UNHEALTHY:
+            case BLOCKED:
+            case ERROR:
+                failure = true;
+                break;
+            default:
+                JobBuild jobBuild = jobStatus.getBuild();
+
+                if (jobBuild != null) {
+                    failure = ((jobBuild.getStatus().equals(Status.FAILURE)) || jobBuild.getStatus().equals(Status.ABORTED));
+                }
+        }
+
+        //Identifies when the failure happened.
+        if (failure) {
+            jobStatus.setFailureTimestamp(new Date());
+        }
+
         return jobStatusRepository.save(jobStatus);
     }
 
     public void delete(Long id) {
-        jobStatusRepository.delete(id);
+        jobStatusRepository.deleteById(id);
     }
 
     public JobStatus updateFlow(JobStatus jobStatus, Flow flow) {

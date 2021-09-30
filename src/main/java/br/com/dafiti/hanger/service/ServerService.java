@@ -51,7 +51,7 @@ public class ServerService {
     }
 
     public Server load(Long id) {
-        return serverRepository.findOne(id);
+        return serverRepository.findById(id).get();
     }
 
     @Caching(evict = {
@@ -63,6 +63,6 @@ public class ServerService {
     @Caching(evict = {
         @CacheEvict(value = "servers", allEntries = true)})
     public void delete(Long id) {
-        serverRepository.delete(id);
+        serverRepository.deleteById(id);
     }
 }

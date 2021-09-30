@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <div th:if="${ errorMessage != null }" class="form-group">
+                <div class="alert alert-danger" role="alert">
+                    <span th:text="${errorMessage}"></span>
+                </div>  
+            </div>
+
+            <div th:if="${ successMessage != null }" class="form-group">
+                <div class="alert alert-success" role="alert">
+                    <span th:text="${successMessage}"></span>
+                </div>  
+            </div>
+
+            <table id="table" class="table table-hover space-top">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th style="width:90%">Name</th>
+                        <th class="no-sort"></th>
+                        <th class="no-sort"></th>
+                        <th class="no-sort"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="template : ${templates}">
+                        <td th:text="${template.id}">#</td>
+                        <td th:text="${template.name}">Name</td>    
+                        <td>
+                            <a th:href="@{'/template/view/' + ${template.id}}" 
+                               class="btn btn-generic btn-xs">                                
+                                <span class="glyphicon glyphicon-unchecked" aria-hidden="true"></span> See
+                            </a>
+                        </td>
+                        <td>
+                            <a th:href="@{'/template/edit/' + ${template.id}}" 
+                               class="btn btn-generic btn-xs">                                
+                                <span class="glyphicon glyphicon-edit" aria-hidden="true"></span> Edit
+                            </a>
+                        </td>
+                        <td>
+                            <div class="form-group">
+                                <a th:if="${#authorization.expression('hasRole(''HERO'')')}"
+                                   class="btn btn-xs btn-delete" data-toggle="modal" 
+                                   th:attr="data-target='#' + 'delete_' + ${template.id}" 
+                                   href="">
+
+                                    <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete
+                                </a>
+                            </div>
+
+                            <!-- INÍCIO MODAL DELETE -->
+                            <div class="modal fade" th:id="${'delete_' + template.id}" tabindex="-1" role="dialog" aria-labelledby="modalDelete">
+                                <div class="modal-dialog" role="document">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                                            <h4 class="modal-title" id="modalParentLabel">Delete</h4>
+                                        </div>
+                                        <div class="modal-body">
+                                            <span th:inline="text">Are you sure you want to delete [[${template.name}]]?</span>
+                                        </div>
+                                        <div class="modal-footer"> 
+                                            <a th:href="@{'/template/delete/' + ${template.id}}" class="col-xs-5 col-sm-5 col-md-5 btn btn-default btn-sm">
+                                                Yes
+                                            </a>
+                                            <a class="col-xs-5 col-sm-5 col-md-5 btn btn-default btn-sm" data-dismiss="modal" aria-label="Close">
+                                                No
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- FIM MODAL DELETE -->
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <hr/>
+
+            <a th:href="@{'/template/add/'}" class="btn btn-link btn-sm">
+                <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add template
+            </a>            
+        </div>
+    </body>
+</html>

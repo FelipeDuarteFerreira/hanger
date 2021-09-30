@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+    <head lang="en" th:replace="base/header :: head">
+        <title>Hanger</title>
+    </head>
+    <body>
+        <th:block th:include="base/header :: navbar"></th:block>
+        <div class="container-fluid main-content">
+            <div>
+                <form class="form-horizontal" th:object="${workbenchQuery}" th:action="@{/query/save}" method="post">
+                    <div class="form-group">
+                        <input type="hidden" class="form-control" th:field="*{id}" />
+                        <input type="hidden" class="form-control" th:field="*{user}" />
+                    </div>
+
+                    <!-- Name -->
+                    <label>Name</label>
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <input type="text" class="form-control" th:field="*{name}" maxlength="50" required="true" placeholder="Query name" />
+                        </div>
+                    </div>
+
+                    <!-- Connection -->
+                    <label>Connection</label>
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <select 
+                                class="selectpicker form-control" 
+                                data-live-search="true" 
+                                th:field="*{connection.id}" 
+                                required="true" 
+                                placeholder="Connection">
+                                <option th:each="connection : ${connections}" 
+                                        th:value="${connection.id}" 
+                                        th:text="${connection.name}">
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Query -->
+                    <label>Query</label>
+                    <div class="form-group">
+                        <div class="col-sm-10">
+                            <textarea class="form-control" rows="6" th:field="*{query}" required="true" maxlength="65000"></textarea>
+                        </div>
+                    </div>
+
+                    <fieldset>
+                        <legend>Options</legend>
+
+                        <!-- Shared -->
+                        <div class="form-group">  
+                            <div class="col-sm-10">
+                                <div class="btn-group">
+                                    <label>
+                                        <input id="shared" name="shared" type="checkbox" th:field="*{shared}" th:checked="*{shared}"/>
+                                        Shared
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <hr/>
+
+                    <div th:if="*{#authorization.expression('hasRole(''HERO'')') or user.username == #httpServletRequest.remoteUser}">
+                        <div class="form-group">
+                            <div class="col-sm-10">
+                                <button type="submit" class="btn btn-generic btn-sm">
+                                    <span class="glyphicon glyphicon-save" aria-hidden="true"></span>
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr/>
+
+                    <div class="form-group">   
+                        <div class="col-sm-5">
+                            <a th:href="@{'/query/stored/'}" class="btn btn-link btn-sm">
+                                <span class="glyphicon glyphicon-backward" aria-hidden="true"></span> Go back
+                            </a>
+
+                        </div>
+
+                        <!--Tracker-->
+                        <div th:if="*{ updatedAt != null }">
+                            <div class="col-sm-5">
+                                <label class="pull-right label-edit-information" th:inline="text">Updated by [[*{modifiedBy}]] at [[*{#dates.format(updatedAt, 'yyyy-MM-dd HH:mm:ss')}]]</label>
+                            </div>
+                        </div>
+                    </div>                  
+                </form>
+            </div>
+        </div>
+    </body>
+</html>

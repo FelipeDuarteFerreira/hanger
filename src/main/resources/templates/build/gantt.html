@@ -5,172 +5,187 @@
     </head>
     <body>
         <th:block th:include="base/header :: navbar"></th:block>
-        <script th:src="@{/js/google-timeline-chart.js}"/>
         <div class="container-fluid main-content">
-            <table>
-                <tr>
-                    <th>
-                        <h3 class="page-title">Gantt</h3>
-                    </th>
-                </tr>            
-            </table>
-            <form class="form-horizontal"  th:object="${filter}" action="" method="get" id="form">
-                <div class="form-group space-top space-left space-right">  
-                    <div class="col-sm-2">
-                        <label>Date</label>
-                        <input name="dateFrom" 
-                               id="date-filter" 
-                               type="text" 
-                               class="form-control" 
-                               th:field="*{dateFrom}"/>
+            <form th:action="@{/subject/save}" method="post">
+                <div class="row space-top">
+                    <div class="form-group col-md-3" style="padding-left: 0">
+                        <label>Period</label>
+                        <input type="text" 
+                               class="form-control date-range" 
+                               maxlength="50" 
+                               name="daterange" 
+                               id="daterange"
+                               readonly="readonly" />
+
+                        <span id="help_period" class="help-block" style="display: none">You must choose a date</span>
+
+                        <input type="hidden" name="dateFrom" id="dateFrom"/>
+                        <input type="hidden" name="dateTo" id="dateTo"/> 
                     </div>
+                    <div class="form-group col-md-9" style="padding-right: 0">
+                        <label>Job</label>
+                        <select 
+                            class="selectpicker form-control deselect" 
+                            data-live-search="true" 
+                            data-actions-box="true"
+                            name="jobs" 
+                            id="jobList" 
+                            multiple="true" 
+                            data-selected-text-format="count > 3">
 
-                    <div class="col-sm-8">
-                        <label>Interval</label>
-                        <div class="form-group space-left space-right">
-                            <input id="slider_hour" 
-                                   name="slider_hour" 
-                                   type="text" 
-                                   value="" 
-                                   data-slider-min="0" 
-                                   data-slider-max="23" 
-                                   data-slider-step="1" 
-                                   data-slider-value="[0,23]"/>
-                        </div>
-                    </div>
-
-                    <div class="col-sm-2 btn-filter">
-                        <button type="button" 
-                                class="btn btn-generic btn-group-justified pull-right" 
-                                th:id="modal_job_list">
-
-                            <span class="glyphicon glyphicon-filter" aria-hidden="true"></span> Filter
-                        </button>
+                            <option th:each="job : ${jobs}" 
+                                    th:value="${job.id}"
+                                    th:text="${job.name}">
+                            </option>
+                        </select>                    
                     </div>
                 </div>
-
-                <!--AJAX Job list modal --> 
-                <div id="modalHolder"/>
-            </form>
-
-            <center>
-                <button id="chart-wait" 
-                        type="button" 
-                        class="btn btn-generic btn-sm" 
-                        style="display:none;">
-
+                <button type="button" 
+                        class="btn btn-generic" 
+                        id="filter">
+                    <span class="glyphicon glyphicon-filter" aria-hidden="true"></span> Filter
+                </button>           
+                <button id="modal_wait" type="button" class="btn btn-generic btn-sm pull-right btn-space" style="display:none;">
                     <img th:src="@{'/images/ajax-loader.gif'}"></img>
                 </button>
+            </form>
 
-                <div class="form-group space-top space-left space-right" id="gantt_chart"></div>
-            </center>
+            <br />
+            <div id="gantt_here" style="min-height:500px;"></div>
+            <br />
+        </div>
+        <script th:inline="javascript">
+            $(function () {
+                // Date range
+                $('#daterange').daterangepicker({
+                    timePicker: true,
+                    startDate: moment().startOf('minute').add(-1, 'H'),
+                    endDate: moment().startOf('minute'),
+                    maxSpan: {"days": 7, "hour": 23, "minute": 59},
+                    maxDate: moment().startOf('day').hour(23).minute(59),
+                    timePicker24Hour: true,
+                    opens: 'right',
+                    locale: {
+                        format: 'YYYY-MM-DD HH:mm',
+                        separator: " to "
+                    },
+                });
 
-            <script th:inline="javascript">
-                /*<![CDATA[*/
-                google.setOnLoadCallback(drawChart);
+                // Save date in a hidden
+                $('#daterange').on('apply.daterangepicker', function (ev, picker) {
+                    $('#dateFrom').val(picker.startDate.format('YYYY-MM-DD HH:mm:ss'));
+                    $('#dateTo').val(picker.endDate.format('YYYY-MM-DD HH:mm') + ':59');
+                });
 
-                function drawChart(arr) {
-                    var rows;
-                    var options;
-                    var jobs = new Set();
-                    var chartHeight;
-                    var data = new google.visualization.DataTable();
+                // Start field with current date
+                $('#dateFrom').val(moment().startOf('minute').add(-1, 'H').format('YYYY-MM-DD HH:mm:ss'));
+                $('#dateTo').val(moment().startOf('minute').second(59).format('YYYY-MM-DD HH:mm:ss'));
 
-                    data.addColumn({type: 'string', id: 'name'});
-                    data.addColumn({type: 'string', id: 'phase'});
-                    data.addColumn({'type': 'string', 'role': 'tooltip', 'p': {'html': true}});
-                    data.addColumn({type: 'date', id: 'Start'});
-                    data.addColumn({type: 'date', id: 'End'});
+                // Gantt chart
+                gantt.config.xml_date = "%Y-%m-%d %H:%i";
+                gantt.config.min_duration = 60 * 60 * 1000;
+                gantt.config.scale_unit = "minute";
+                gantt.config.date_scale = "%i";
+                gantt.config.step = 30;
+                gantt.config.duration_unit = "minute";
+                gantt.config.min_column_width = 20;
+                gantt.config.scale_height = 50;
+                gantt.config.row_height = 25;
+                gantt.config.readonly = true;
+                gantt.config.autosize = "y";
 
-                    if (arr != null || arr != "[]") {
-                        rows = JSON.parse(arr);
-                        for (var i = 0; i < rows.length; i++) {
-                            var row = rows[i];
-                            data.addRow([row[0], row[1], row[2], new Date(row[3]), new Date(row[4])]);
-                            jobs.add(row[0]);
-                        }
+                gantt.templates.grid_row_class = function (start, end, task) {
+                    if (!gantt.getParent(task)) {
+                        return "row-gantt-parent";
+                    }
+                };
+
+                gantt.templates.task_row_class = function (start, end, task) {
+                    if (!gantt.getParent(task)) {
+                        return "row-gantt-parent";
+                    }
+                };
+
+                gantt.config.columns = [
+                    {name: "text", label: "Job", tree: true, width: "400", resize: true},
+                    {name: "duration", label: "Duration", align: "center", width: "100", resize: true}
+                ];
+
+                gantt.config.subscales = [
+                    {unit: "day", step: 1, date: "%Y-%m-%d"},
+                    {unit: "hour", step: 1, date: "%G"}
+                ];
+
+                gantt.templates.task_text = function (start, end, task) {
+                    return "";
+                };
+
+                gantt.templates.rightside_text = function (start, end, task) {
+                    var text = "";
+
+                    if (task.parent) {
+                        text = "<strong>Efficiency: </strong>" + Math.round((1 - task.progress) * 100) + "%";
+                    } else {
+                        text = "<strong># of job duration</strong>";
                     }
 
-                    chartHeight = ( jobs.size * 45 ) + 100;
+                    return text;
+                };
 
-                    options = {
-                        height: chartHeight,
-                        colors: ['#cd5c5c', '#71b4e4'],
-                        timeline: {},
-                        tooltip: {isHtml: true}
-                    };
-
-                    var chart = new google.visualization.Timeline(document.getElementById('gantt_chart'));
-                    chart.draw(data, options);
-                }
-
-                $(function () {
-                    /**
-                     * Show wait panel.
-                     */
-                    $(document).ajaxStart(function () {
-                        $("#chart-wait").css("display", "block");
-                    });
-
-                    /**
-                     * Hide wait panel.
-                     */
-                    $(document).ajaxComplete(function () {
-                        $("#chart-wait").css("display", "none");
-                    });
-
-                    /**
-                     * Show job list modal. 
-                     * @returns {undefined}
-                     */
-                    $("#modal_job_list").click(function () {
-                        var url = /*[[@{/build/gantt/list}]]*/ "/build/gantt/list";
-                        var server = $(this).val();
-
-                        $.ajax({
-                            type: "GET",
-                            url: url + server,
-                            timeout: 30000,
-                            success: function (result) {
-                                $("#modalHolder").html(result);
-                                $("#modalJobList").modal({backdrop: 'static', keyboard: false});
-                                $('.selectpicker').selectpicker();
-                            },
-                            error: function(xhr, status, error) {
-                                alert("Error loading jobs from database " + xhr.responseText);
-                            }
-                        });
-                    });
-
-                    /**
-                     * Draw the gantt chart. 
-                     */
-                    $("#form").submit(function () {
-                        var dados = $(this).serialize();
-
-                        $("#modalJobList").modal('hide');
-
-                        $.ajax({
-                            type: "GET",
-                            url: /*[[@{/build/gantt/filtered}]]*/ "/build/gantt/filtered",
-                            data: dados,
-                            success: function (result) {
-                                drawChart(result);
-                            },
-                            error: function(xhr, status, error) {
-                                alert("something went wrong! Could not draw the chart " + xhr.responseText);
-                            }
-                        });
-                        return false;
-                    });
-
-                    /**
-                     * Define the initial hour slider value.
-                     */
-                    $("#slider_hour").slider({value: [new Date().getHours(), new Date().getHours()]});
+                gantt.attachEvent("onBeforeParse", function () {
+                    gantt.message({type: "warning", text: "Gantt loading..."});
                 });
-                /*]]>*/
-            </script>
-        </div>
+
+                $.ajaxSetup({
+                    headers: {'X-CSRF-Token': $('#_csrf').attr('content')}
+                });
+
+                $(document).ajaxStart(function () {
+                    $("#modal_wait").css("display", "block");
+                });
+
+                $(document).ajaxComplete(function () {
+                    $("#modal_wait").css("display", "none");
+                });
+
+                $("#filter").click(function () {
+                    var dateFrom = $("#dateFrom").val();
+                    var dateTo = $("#dateTo").val();
+                    var jobs = $.map($("#jobList").val().toString().split(','), function (value) {
+                        return parseInt(value);
+                    });
+
+                    if (dateFrom === "") {
+                        $('#help_period').show();
+                        return false;
+                    } else {
+                        $('#help_period').hide();
+                    }
+
+                    gantt.init("gantt_here");
+                    gantt.clearAll();
+
+                    $.ajax({
+                        type: "POST",
+                        contentType: 'application/json; charset=utf-8',
+                        dataType: 'json',
+                        url: /*[[@{/build/gantt/filtered}]]*/ "/build/gantt/filtered",
+                        data: JSON.stringify(
+                                {
+                                    from: dateFrom,
+                                    to: dateTo,
+                                    jobs: jobs
+                                }),
+                        success: function (data) {
+                            if (data.data.length === 0) {
+                                gantt.message({type: "error", text: "Data not found"});
+                            } else {
+                                gantt.parse(data);
+                            }
+                        }
+                    });
+                });
+            });
+        </script>
     </body>    
 </html>

@@ -32,5 +32,6 @@ public enum Event {
     EDIT,
     DELETE,
     BUILD,
-    REBUILD;
+    REBUILD,
+    QUERY;
 }
